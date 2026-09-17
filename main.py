@@ -36,12 +36,19 @@ CONEXAO_ODBC = (
 )
 
 
-class NovoTermoSchema(BaseModel):
-        texto_portugues: str
-        texto_akwe: str
-        raiz_gramatical: Optional[str] = None
-        id_categoria: int
-        explicacao_contexto: Optional[str] = None
+class NovaTraducaoSchema(BaseModel):
+    texto_portugues: str
+    texto_akwe: str
+    raiz_gramatical: Optional[str] = None
+    id_categoria: int
+    explicacao_contexto: Optional[str] = None
+
+class NovaTermoPtSchema(BaseModel):
+    texto_portugues: str
+
+class NovaTermoAkweSchema(BaseModel):
+    texto_akwe: str
+    raiz_gramatical: Optional[str] = None
 
 class NovaCategoriaSchema(BaseModel):
     nome: str
@@ -61,14 +68,15 @@ class NovaMidiaSchema(BaseModel):
 # ROTAS
 
 def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
-    """Abre conexão ODBC, executa a SQL pura e fecha o cursor."""
+    """Abre conexão ODBC, executa a SQL pura, confirma a transação e fecha o cursor."""
     try:
         conn = pyodbc.connect(CONEXAO_ODBC)
         cursor = conn.cursor()
         cursor.execute(query, params)
 
-        
-        # Se for uma consulta SELECT
+        resultado = True
+
+        # Se a query retornar dados (SELECT ou INSERT/UPDATE com RETURNING)
         if cursor.description:
             colunas = [coluna[0] for coluna in cursor.description]
             if fetch_all:
@@ -77,15 +85,15 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
             else:
                 linha = cursor.fetchone()
                 resultado = dict(zip(colunas, linha)) if linha else None
-            cursor.close()
-            conn.close()
-            return resultado
-        
-        # Se for INSERT, UPDATE, DELETE
+
+        # Dá COMMIT SEMPRE (garante que INSERTs com ou sem RETURNING sejam salvos)
         conn.commit()
+
         cursor.close()
         conn.close()
-        return True
+
+        return resultado
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no banco de dados: {str(e)}")
 
@@ -174,7 +182,7 @@ def registrar_consulta(id_traducao: int):
 
 # Rota pra cadastrar termo
 @app.post("/api/admin/traducao")
-def cadastrar_traducao(dados: NovoTermoSchema):
+def cadastrar_traducao(dados: NovaTraducaoSchema):
     conn = None
     try:
         conn = pyodbc.connect(CONEXAO_ODBC)
@@ -253,6 +261,44 @@ def cadastrar_traducao(dados: NovoTermoSchema):
         if conn:
             conn.close()
 
+@app.post("/api/admin/termopt")
+def cadastrar_termo_pt(dados: NovaTermoPtSchema):
+    sql = """
+        INSERT INTO organograma.termos_portugues (texto_portugues)
+        VALUES (?) 
+        RETURNING id_termo_pt;
+    """
+    resultado = executar_query(sql, (dados.texto_portugues,), fetch_all=False)
+    if not resultado:
+        return {
+            "status": "existente",
+            "mensagem": f"O termo português '{dados.texto_portugues}' já existe no banco de dados."
+        }
+
+    return {
+        "status": "success",
+        "mensagem": f"O termo português '{dados.texto_portugues}' foi inserido ID: '{resultado['id_termo_pt']}'."
+    }
+
+@app.post("/api/admin/termoakwe")
+def cadastrar_termo_akwe(dados: NovaTermoAkweSchema):
+    sql = """
+        INSERT INTO organograma.termos_akwe (texto_akwe, raiz_gramatical)
+        VALUES (?, ?) 
+        RETURNING id_termo_akwe;
+    """
+    resultado = executar_query(sql, (dados.texto_akwe, dados.raiz_gramatical), fetch_all=False)
+    if not resultado:
+        return {
+            "status": "existente",
+            "mensagem": f"O termo akwe: '{dados.texto_akwe}' já existe no banco de dados."
+        }
+
+    return {
+        "status": "success",
+        "mensagem": f"O termo akwe '{dados.texto_akwe}' foi inserido ID: '{resultado['id_termo_akwe']}'."
+    }
+
 @app.post("/api/admin/categoria")
 def cadastrar_categoria(dados: NovaCategoriaSchema):
     nome_limpo = dados.nome.strip()
@@ -267,7 +313,7 @@ def cadastrar_categoria(dados: NovaCategoriaSchema):
     if not resultado:
         return {
             "status": "existente",
-            "mensagem": f"A categoria '{nome_limpo}' já existe no banco!"
+            "mensagem": f"A categoria '{nome_limpo}' já existe no banco."
         }
 
     return {
@@ -392,8 +438,7 @@ def deletar_termo_akwe(id_termo_akwe: int):
 def deletar_categoria(id_categoria: int):
     try:
         sql = """
-            DELETE FROM organograma.categorias WHERE id_categoria = ?
-            ON CONFLICT DO NOTHING;
+            DELETE FROM organograma.categorias WHERE id_categoria = ?;
         """
 
         executar_query(sql, (id_categoria,), fetch_all=False)
@@ -406,7 +451,7 @@ def deletar_categoria(id_categoria: int):
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail="Não foi possível deletar: a categoria está sendo utilziado em uma ou mais traduções."
+            detail=f"Não foi possível deletar a categoria ID {id_categoria}: ela possui traduções vinculadas. (Erro: {str(e)})"
         )
 
 @app.delete("/api/admin/midias/{id_midia}/deletar")
@@ -433,8 +478,7 @@ def deletar_midia(id_midia: int):
 def deletar_tag(id_tag: int):
     try:
         sql = """
-            DELETE FROM organograma.tags WHERE id_tag = ?
-            ON CONFLICT DO NOTHING;
+            DELETE FROM organograma.tags WHERE id_tag = ?;
         """
 
         executar_query(sql, (id_tag,), fetch_all=False)
