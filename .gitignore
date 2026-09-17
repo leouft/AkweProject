@@ -1,0 +1,31 @@
+# Ambiente virtual (venv)
+venv/
+env/
+ENV/
+.env/
+.env
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arquivos de áudio (se estiverem salvos localmente na pasta do projeto)
+*.mp3
+*.wav
+*.ogg
+*.m4a
+audios/
+media/
+uploads/
+
+# Configurações do editor (VS Code, PyCharm)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Banco de dados local (se você usar SQLite)
+*.db
+*.sqlite
+*.sqlite3
