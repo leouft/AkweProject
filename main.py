@@ -35,6 +35,7 @@ CONEXAO_ODBC = (
     f"PWD={DATABASE_PASSWORD};"
 )
 
+# Schemas pra ser passados como argumento nas rotas
 
 class NovaTraducaoSchema(BaseModel):
     texto_portugues: str
@@ -65,7 +66,7 @@ class NovaMidiaSchema(BaseModel):
     url_arquivo: str
     id_traducao: int
 
-# ROTAS
+# Função que executa um query SQL
 
 def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
     """Abre conexão ODBC, executa a SQL pura, confirma a transação e fecha o cursor."""
@@ -96,6 +97,8 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no banco de dados: {str(e)}")
+
+# ROTAS
 
 @app.get("/")
 def home():
@@ -180,7 +183,7 @@ def registrar_consulta(id_traducao: int):
     executar_query(sql, (id_traducao,))
     return {"status": "Consulta registrada."}
 
-# Rota pra cadastrar termo
+# Rota pra cadastrar uma tradução (termo pt + termo akwe + categoria)
 @app.post("/api/admin/traducao")
 def cadastrar_traducao(dados: NovaTraducaoSchema):
     conn = None
@@ -261,6 +264,7 @@ def cadastrar_traducao(dados: NovaTraducaoSchema):
         if conn:
             conn.close()
 
+# Rota pra cadastrar um termo português
 @app.post("/api/admin/termopt")
 def cadastrar_termo_pt(dados: NovaTermoPtSchema):
     sql = """
@@ -280,6 +284,7 @@ def cadastrar_termo_pt(dados: NovaTermoPtSchema):
         "mensagem": f"O termo português '{dados.texto_portugues}' foi inserido ID: '{resultado['id_termo_pt']}'."
     }
 
+# Rota pra cadastrar um termo akwe
 @app.post("/api/admin/termoakwe")
 def cadastrar_termo_akwe(dados: NovaTermoAkweSchema):
     sql = """
@@ -299,6 +304,7 @@ def cadastrar_termo_akwe(dados: NovaTermoAkweSchema):
         "mensagem": f"O termo akwe '{dados.texto_akwe}' foi inserido ID: '{resultado['id_termo_akwe']}'."
     }
 
+# Rota pra cadastrar uma categoria
 @app.post("/api/admin/categoria")
 def cadastrar_categoria(dados: NovaCategoriaSchema):
     nome_limpo = dados.nome.strip()
@@ -322,6 +328,7 @@ def cadastrar_categoria(dados: NovaCategoriaSchema):
         "id_categoria": resultado['id_categoria']
     }
 
+# Rota pra cadastrar uma tag
 @app.post("/api/admin/tag")
 def cadastrar_tag(dados: NovaTagSchema):
     nome_limpo = dados.nome.strip()
@@ -345,6 +352,7 @@ def cadastrar_tag(dados: NovaTagSchema):
         "id_tag": resultado['id_tag']
     }
 
+# Rota pra conectar uma tag com uma tradução
 @app.post("/api/admin/tag/connect")
 def conectar_tag(dados: NovaTermoTagsSchema):
     sql = """
@@ -360,6 +368,7 @@ def conectar_tag(dados: NovaTermoTagsSchema):
         "mensagem": f"Tag ID {dados.id_tag} conectada à tradução ID {dados.id_traducao}."
     }
 
+# Rota pra cadastrar uma mídia
 @app.post("/api/admin/midias")
 def cadastrar_midia(dados: NovaMidiaSchema):
     sql = """
@@ -376,6 +385,7 @@ def cadastrar_midia(dados: NovaMidiaSchema):
         "id_midia": resultado['id_midia'] if resultado else None
     }
 
+# Rota pra deletar uma tradução
 @app.delete("/api/admin/traducao/{id_traducao}/deletar")
 def deletar_traducao(id_traducao: int):
     try:
@@ -395,6 +405,7 @@ def deletar_traducao(id_traducao: int):
             detail="Não foi possível deletar a tradução."
         )
 
+# Rota pra deletar um termo português
 @app.delete("/api/admin/termopt/{id_termo_pt}/deletar")
 def deletar_termo_pt(id_termo_pt: int):
     try:
@@ -415,6 +426,7 @@ def deletar_termo_pt(id_termo_pt: int):
             detail="Não foi possível deletar: o termo está sendo utiliziado em uma ou mais traduções."
         )
 
+# Rota pra deletar um termo akwe
 @app.delete("/api/admin/termoakwe/{id_termo_akwe}/deletar")
 def deletar_termo_akwe(id_termo_akwe: int):
     try:
@@ -434,6 +446,7 @@ def deletar_termo_akwe(id_termo_akwe: int):
             detail="Não foi possível deletar: o termo está sendo utilziado em uma ou mais traduções."
         )
 
+# Rota pra deletar uma categoria
 @app.delete("/api/admin/categorias/{id_categoria}/deletar")
 def deletar_categoria(id_categoria: int):
     try:
@@ -454,6 +467,7 @@ def deletar_categoria(id_categoria: int):
             detail=f"Não foi possível deletar a categoria ID {id_categoria}: ela possui traduções vinculadas. (Erro: {str(e)})"
         )
 
+# Rota pra deletar uma mídia
 @app.delete("/api/admin/midias/{id_midia}/deletar")
 def deletar_midia(id_midia: int):
     try:
@@ -474,6 +488,7 @@ def deletar_midia(id_midia: int):
             detail="Não foi possível deletar a midia."
         )
 
+# Rota pra deletar uma tag
 @app.delete("/api/admin/tag/{id_tag}/deletar")
 def deletar_tag(id_tag: int):
     try:
@@ -494,6 +509,7 @@ def deletar_tag(id_tag: int):
             detail="Não foi possível deletar: a tag está sendo utilziado em uma ou mais relação de tradução com tag."
         )
 
+# Rota pra desconectar uma tag de uma tradução
 @app.delete("/api/admin/tag/disconnect")
 def desconectar_tag(dados: NovaTermoTagsSchema):
     try:
