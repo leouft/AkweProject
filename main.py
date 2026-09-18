@@ -117,11 +117,11 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
 
 # endregion
 
-# region ROTAS DE CRIAÇÃO (POST) 
-
 @app.get("/")
 def home():
     return {"status": "API funcionando."}
+
+# region ROTAS DE CRIAÇÃO (POST) 
 
 @app.post("/api/admin/traducoes", status_code=201)
 def create_traducao(dados: TraducaoCreateSchema):
