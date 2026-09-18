@@ -6,26 +6,25 @@ from typing import Optional
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-# Carrega o .env
+# Carrega as variáveis do arquivo .env
 load_dotenv()
 DATABASE_LOGIN = os.getenv("DATABASE_LOGIN")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
 
-# Cria o objeto fastapi
+# Instância principal da aplicação FastAPI
 app = FastAPI(
-    title="API",
-    description="Backend"
+    title="API - Dicionário Akwẽ",
+    description="Backend RESTful para gerenciamento de dados do dicionário"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite requisições de qualquer origem para testes
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Monta a string ODBC usando f-string
 CONEXAO_ODBC = (
     f"DRIVER={{PostgreSQL Unicode}};"
     f"SERVER=localhost;"
@@ -35,7 +34,7 @@ CONEXAO_ODBC = (
     f"PWD={DATABASE_PASSWORD};"
 )
 
-# region Schemas pra ser passados como argumento nas rotas
+# region SCHEMAS PYDANTIC
 
 class TraducaoCreateSchema(BaseModel):
     texto_portugues: str
@@ -45,13 +44,21 @@ class TraducaoCreateSchema(BaseModel):
     explicacao_contexto: Optional[str] = None
 
 class TraducaoUpdateSchema(BaseModel):
-    id_traducao: int
     id_categoria: int
     explicacao_contexto: Optional[str] = None
 
-class TermoAkweCreateSchema(BaseModel):
+class TermoPtSchema(BaseModel):
+    texto_portugues: str
+
+class TermoAkweSchema(BaseModel):
     texto_akwe: str
     raiz_gramatical: Optional[str] = None
+
+class CategoriaSchema(BaseModel):
+    nome: str
+
+class TagSchema(BaseModel):
+    nome: str
 
 class TermoTagsSchema(BaseModel):
     id_traducao: int
@@ -62,43 +69,27 @@ class MidiaCreateSchema(BaseModel):
     url_arquivo: str
     id_traducao: int
 
-class CategoriaUpdateSchema(BaseModel):
-    id_categoria: int
-    nome: str
+class MidiaUpdateSchema(BaseModel):
+    tipo: str
+    url_arquivo: str
+    id_traducao: int
 
-class EstatisticasUpdateSchema(BaseModel):
-    id_estatistica: int
+class EstatisticaCreateSchema(BaseModel):
+    id_traducao: int
+
+class EstatisticaUpdateSchema(BaseModel):
     id_traducao: int
     quantidade_consultas: int
     reproducoes_audio: int
     nivel_clareza: int
     tempo_retencao_segundos: int
 
-class MidiaUpdateSchema(BaseModel):
-    id_midia: int
-    tipo: str
-    url_arquivo: str
-    id_traducao: int
-
-class TagUpdateSchema(BaseModel):
-    id_tag: int
-    nome: str
-
-class TermoAkweUpdateSchema(BaseModel):
-    id_termo_akwe: int
-    texto_akwe: str
-    raiz_gramatical: Optional[str] = None
-
-class TermoPtUpdateSchema(BaseModel):
-    id_termo_pt: int
-    texto_portugues: str
-
 # endregion
 
-# Função que executa um query SQL
+# region FUNÇÕES UTILITÁRIAS 
 
 def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
-    """Abre conexão ODBC, executa a SQL pura, confirma a transação e fecha o cursor."""
+    """Abre conexão ODBC, executa a SQL com suporte a RETURNING e encerra o cursor."""
     try:
         conn = pyodbc.connect(CONEXAO_ODBC)
         cursor = conn.cursor()
@@ -106,7 +97,6 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
 
         resultado = True
 
-        # Se a query retornar dados (SELECT ou INSERT/UPDATE com RETURNING)
         if cursor.description:
             colunas = [coluna[0] for coluna in cursor.description]
             if fetch_all:
@@ -116,9 +106,7 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
                 linha = cursor.fetchone()
                 resultado = dict(zip(colunas, linha)) if linha else None
 
-        # Dá COMMIT SEMPRE (garante que INSERTs com ou sem RETURNING sejam salvos)
         conn.commit()
-
         cursor.close()
         conn.close()
 
@@ -127,16 +115,15 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no banco de dados: {str(e)}")
 
-# ROTAS
+# endregion
+
+# region ROTAS DE CRIAÇÃO (POST) 
 
 @app.get("/")
 def home():
     return {"status": "API funcionando."}
 
-# region CREATE
-
-# Rota pra create uma tradução (termo pt + termo akwe + categoria)
-@app.post("/api/admin/traducao")
+@app.post("/api/admin/traducoes", status_code=201)
 def create_traducao(dados: TraducaoCreateSchema):
     conn = None
     try:
@@ -180,7 +167,7 @@ def create_traducao(dados: TraducaoCreateSchema):
             )
             id_termo_akwe = cursor.fetchone()[0]
 
-        # 3. Insere a Tradução na tabela principal
+        # 3. Insere a Tradução principal
         sql_traducao = """
             INSERT INTO organograma.termos_traducoes (id_termo_pt, id_termo_akwe, id_categoria, explicacao_contexto)
             VALUES (?, ?, ?, ?)
@@ -192,14 +179,13 @@ def create_traducao(dados: TraducaoCreateSchema):
         )
         id_traducao = cursor.fetchone()[0]
 
-        # 4. Cria o registro de estatística zerado
+        # 4. Inicializa o registro de estatística
         sql_estatistica = """
             INSERT INTO organograma.estatisticas_termos (id_traducao, quantidade_consultas, reproducoes_audio, tempo_retencao_segundos)
             VALUES (?, 0, 0, 0);
         """
         cursor.execute(sql_estatistica, (id_traducao,))
 
-        # Confirma todas as operações na mesma transação
         conn.commit()
 
         return {
@@ -216,29 +202,28 @@ def create_traducao(dados: TraducaoCreateSchema):
         if conn:
             conn.close()
 
-# Rota pra create um termo português
-@app.post("/api/admin/termospt/create")
-def create_termo_pt(texto_portugues: str):
+@app.post("/api/admin/termos-portugues", status_code=201)
+def create_termo_pt(dados: TermoPtSchema):
     sql = """
         INSERT INTO organograma.termos_portugues (texto_portugues)
         VALUES (?) 
         RETURNING id_termo_pt;
     """
-    resultado = executar_query(sql, (texto_portugues,), fetch_all=False)
+    resultado = executar_query(sql, (dados.texto_portugues,), fetch_all=False)
     if not resultado:
         return {
             "status": "existente",
-            "mensagem": f"O termo português '{texto_portugues}' já existe no banco de dados."
+            "mensagem": f"O termo português '{dados.texto_portugues}' já existe no banco de dados."
         }
 
     return {
         "status": "success",
-        "mensagem": f"O termo português '{texto_portugues}' foi inserido ID: '{resultado['id_termo_pt']}'."
+        "mensagem": f"O termo português '{dados.texto_portugues}' foi inserido com sucesso.",
+        "id_termo_pt": resultado['id_termo_pt']
     }
 
-# Rota pra create um termo akwe
-@app.post("/api/admin/termosakwe/create")
-def create_termo_akwe(dados: TermoAkweCreateSchema):
+@app.post("/api/admin/termos-akwe", status_code=201)
+def create_termo_akwe(dados: TermoAkweSchema):
     sql = """
         INSERT INTO organograma.termos_akwe (texto_akwe, raiz_gramatical)
         VALUES (?, ?) 
@@ -248,62 +233,60 @@ def create_termo_akwe(dados: TermoAkweCreateSchema):
     if not resultado:
         return {
             "status": "existente",
-            "mensagem": f"O termo akwe: '{dados.texto_akwe}' já existe no banco de dados."
+            "mensagem": f"O termo Akwẽ '{dados.texto_akwe}' já existe no banco de dados."
         }
 
     return {
         "status": "success",
-        "mensagem": f"O termo akwe '{dados.texto_akwe}' foi inserido ID: '{resultado['id_termo_akwe']}'."
+        "mensagem": f"O termo Akwẽ '{dados.texto_akwe}' foi inserido com sucesso.",
+        "id_termo_akwe": resultado['id_termo_akwe']
     }
 
-# Rota pra create uma categoria
-@app.post("/api/admin/categorias/create")
-def create_categoria(nome: str):
+@app.post("/api/admin/categorias", status_code=201)
+def create_categoria(dados: CategoriaSchema):
     sql = """
         INSERT INTO organograma.categorias (nome)
         VALUES (?)
         ON CONFLICT (nome) DO NOTHING
         RETURNING id_categoria;
     """
-    resultado = executar_query(sql, (nome,), fetch_all=False)
+    resultado = executar_query(sql, (dados.nome,), fetch_all=False)
 
     if not resultado:
         return {
             "status": "existente",
-            "mensagem": f"A categoria '{nome}' já existe no banco."
+            "mensagem": f"A categoria '{dados.nome}' já existe no banco."
         }
 
     return {
-        "status": "sucesso",
-        "mensagem": f"Categoria '{nome}' criada!",
+        "status": "success",
+        "mensagem": f"Categoria '{dados.nome}' criada com sucesso.",
         "id_categoria": resultado['id_categoria']
     }
 
-# Rota pra create uma tag
-@app.post("/api/admin/tags/create")
-def create_tag(nome: str):
+@app.post("/api/admin/tags", status_code=201)
+def create_tag(dados: TagSchema):
     sql = """
         INSERT INTO organograma.tags (nome)
         VALUES (?)
         ON CONFLICT (nome) DO NOTHING
         RETURNING id_tag;
     """
-    resultado = executar_query(sql, (nome,), fetch_all=False)
+    resultado = executar_query(sql, (dados.nome,), fetch_all=False)
 
     if not resultado:
         return {
             "status": "existente",
-            "mensagem": f"A tag '{nome}' já existe no banco."
+            "mensagem": f"A tag '{dados.nome}' já existe no banco."
         }
 
     return {
         "status": "success",
-        "mensagem": f"Tag '{nome}' criada.",
+        "mensagem": f"Tag '{dados.nome}' criada com sucesso.",
         "id_tag": resultado['id_tag']
     }
 
-# Rota pra conectar uma tag com uma tradução
-@app.post("/api/admin/termotags/create")
+@app.post("/api/admin/termo-tags", status_code=201)
 def conectar_tag(dados: TermoTagsSchema):
     sql = """
         INSERT INTO organograma.termo_tags (id_traducao, id_tag)
@@ -311,23 +294,20 @@ def conectar_tag(dados: TermoTagsSchema):
         ON CONFLICT DO NOTHING
         RETURNING id_traducao;
     """
-
-    resultado = executar_query(sql, (dados.id_traducao, dados.id_tag), fetch_all=False)
+    executar_query(sql, (dados.id_traducao, dados.id_tag), fetch_all=False)
 
     return {
         "status": "success",
         "mensagem": f"Tag ID {dados.id_tag} conectada à tradução ID {dados.id_traducao}."
     }
 
-# Rota pra create uma mídia
-@app.post("/api/admin/midias/create")
+@app.post("/api/admin/midias", status_code=201)
 def create_midia(dados: MidiaCreateSchema):
     sql = """
         INSERT INTO organograma.midias (tipo, url_arquivo, id_traducao)
         VALUES (?, ?, ?)
         RETURNING id_midia;
     """
-
     resultado = executar_query(sql, (dados.tipo, dados.url_arquivo, dados.id_traducao), fetch_all=False)
 
     return {
@@ -336,33 +316,31 @@ def create_midia(dados: MidiaCreateSchema):
         "id_midia": resultado['id_midia'] if resultado else None
     }
 
-# Rota pra criar uma estatística
-@app.post("/api/admin/estatisticas/create")
-def create_estatistica(id_traducao: int):
+@app.post("/api/admin/estatisticas", status_code=201)
+def create_estatistica(dados: EstatisticaCreateSchema):
     try:
         sql = """
             INSERT INTO organograma.estatisticas_termos (id_traducao)
             VALUES (?)
             RETURNING id_estatistica;
         """
-        resultado = executar_query(sql, (id_traducao,), fetch_all=False)
+        resultado = executar_query(sql, (dados.id_traducao,), fetch_all=False)
         return {
             "status": "success",
-            "mensagem": f"Estatística criada para a tradução ID {id_traducao}.",
+            "mensagem": f"Estatística criada para a tradução ID {dados.id_traducao}.",
             "id_estatistica": resultado['id_estatistica'] if resultado else None
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Não foi possível criar a estatística. (Erro: {str(e)})"
+            detail=f"Não foi possível criar a estatística: {str(e)}"
         )
 
 # endregion
 
-# region READ
+# region ROTAS DE LEITURA (GET)
 
-# Buscar um termo
 @app.get("/api/search")
 def buscar_termo(q: Optional[str] = Query(None)):
     if not q:
@@ -390,7 +368,6 @@ def buscar_termo(q: Optional[str] = Query(None)):
     resultados = executar_query(sql, (termo_busca, termo_busca, termo_busca))
     return {"busca": q, "total": len(resultados), "dados": resultados}
 
-# Exibir estatísticas em resumo pro painel
 @app.get("/api/admin/estatisticas/overview")
 def overview_estatisticas():
     sql = """
@@ -405,19 +382,12 @@ def overview_estatisticas():
     stats = executar_query(sql, fetch_all=False)
     return {"estatisticas": stats}
 
-# Exibir todas estatísticas
-@app.get("/api/admin/estatisticas/read")
+@app.get("/api/admin/estatisticas")
 def read_estatisticas():
-    sql = """
-        SELECT * FROM organograma.estatisticas_termos;
-    """
+    sql = "SELECT * FROM organograma.estatisticas_termos;"
+    return {"estatisticas": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {"estatisticas": resultado}
-
-# Listar todas as traduções formatados para a tabela do Admin
-@app.get("/api/admin/traducoes/read")
+@app.get("/api/admin/traducoes")
 def listar_traducoes_admin():
     sql = """
         SELECT 
@@ -441,100 +411,46 @@ def listar_traducoes_admin():
     """
     return {"termos": executar_query(sql)}
 
-@app.get("/api/traducoes/read")
+@app.get("/api/traducoes")
 def read_traducoes():
-    sql = """
-        SELECT * FROM organograma.termos_traducoes;
-    """
+    sql = "SELECT * FROM organograma.termos_traducoes;"
+    return {"termos_traducoes": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-    
-    return {
-        "termos_traducoes": resultado
-    }
-
-# Listar todas as categorias
-@app.get("/api/categorias/read")
+@app.get("/api/categorias")
 def read_categorias():
-    sql = """
-        SELECT * FROM organograma.categorias;
-    """
+    sql = "SELECT * FROM organograma.categorias;"
+    return {"categorias": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {"categorias": resultado}
-
-# Listar todas as mídias
-@app.get("/api/midias/read")
+@app.get("/api/midias")
 def read_midias():
-    sql = """
-        SELECT * FROM organograma.midias;
-    """
+    sql = "SELECT * FROM organograma.midias;"
+    return {"midias": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {
-        "midias": resultado
-    }
-
-# Listar todas as tags
-@app.get("/api/tags/read")
+@app.get("/api/tags")
 def read_tags():
-    sql = """
-        SELECT * FROM organograma.tags;
-    """
+    sql = "SELECT * FROM organograma.tags;"
+    return {"tags": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {
-        "tags": resultado
-    }
-
-# Listar todas conexões termo_tags
-@app.get("/api/termotags/read")
+@app.get("/api/termo-tags")
 def read_termotags():
-    sql = """
-        SELECT * FROM organograma.termo_tags;
-    """
+    sql = "SELECT * FROM organograma.termo_tags;"
+    return {"termo_tags": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {
-        "termo_tags": resultado
-    }
-
-# Listar todos os termos akwe
-@app.get("/api/termosakwe/read")
+@app.get("/api/termos-akwe")
 def read_termos_akwe():
-    sql = """
-        SELECT * FROM organograma.termos_akwe;
-    """
+    sql = "SELECT * FROM organograma.termos_akwe;"
+    return {"termos_akwe": executar_query(sql, fetch_all=True)}
 
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {
-        "termos_akwe": resultado
-    }
-
-# Listar todos os termos pt
-@app.get("/api/termospt/read")
+@app.get("/api/termos-portugues")
 def read_termos_pt():
-    sql = """
-        SELECT * FROM organograma.termos_portugues;
-    """
-
-    resultado = executar_query(sql, fetch_all=True)
-
-    return {
-        "termos_portugues": resultado
-    }
+    sql = "SELECT * FROM organograma.termos_portugues;"
+    return {"termos_portugues": executar_query(sql, fetch_all=True)}
 
 # endregion
 
-# region UPDATE
+# region ROTAS DE ATUALIZAÇÃO (PUT / PATCH)
 
-# Incrementa consultas do termo
-@app.patch("/api/traducao/{id_traducao}/consultar")
+@app.patch("/api/traducoes/{id_traducao}/consultar")
 def registrar_consulta(id_traducao: int):
     sql = """
         UPDATE organograma.estatisticas_termos 
@@ -545,11 +461,10 @@ def registrar_consulta(id_traducao: int):
     resultado = executar_query(sql, (id_traducao,), fetch_all=False)
     if not resultado:
         raise HTTPException(status_code=404, detail=f"Tradução ID {id_traducao} não encontrada para estatística.")
-    return {"status": "Consulta registrada."}
+    return {"status": "success", "mensagem": "Consulta registrada com sucesso."}
 
-# Rota de atualização para a tabela principal de traduções
-@app.put("/api/admin/traducoes/update")
-def update_traducao(dados: TraducaoUpdateSchema):
+@app.put("/api/admin/traducoes/{id_traducao}")
+def update_traducao(id_traducao: int, dados: TraducaoUpdateSchema):
     try:
         sql = """
             UPDATE organograma.termos_traducoes
@@ -558,26 +473,19 @@ def update_traducao(dados: TraducaoUpdateSchema):
             WHERE id_traducao = ?
             RETURNING id_traducao;
         """
-        resultado = executar_query(sql, (dados.id_categoria, dados.explicacao_contexto, dados.id_traducao), fetch_all=False)
+        resultado = executar_query(sql, (dados.id_categoria, dados.explicacao_contexto, id_traducao), fetch_all=False)
         
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Tradução ID {dados.id_traducao} não encontrada.")
+            raise HTTPException(status_code=404, detail=f"Tradução ID {id_traducao} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": "Tradução atualizada com sucesso."
-        }
+        return {"status": "success", "mensagem": "Tradução atualizada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Não foi possível atualizar a tradução. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar a tradução: {str(e)}")
 
-# Atualiza o nome de uma categoria
-@app.put("/api/admin/categorias/update")
-def update_categoria(dados: CategoriaUpdateSchema):
+@app.put("/api/admin/categorias/{id_categoria}")
+def update_categoria(id_categoria: int, dados: CategoriaSchema):
     try:
         sql = """
             UPDATE organograma.categorias
@@ -585,28 +493,19 @@ def update_categoria(dados: CategoriaUpdateSchema):
             WHERE id_categoria = ?
             RETURNING id_categoria;
         """
-
-        resultado = executar_query(sql, (dados.nome, dados.id_categoria), fetch_all=False)
+        resultado = executar_query(sql, (dados.nome, id_categoria), fetch_all=False)
 
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Categoria ID {dados.id_categoria} não encontrada.")
+            raise HTTPException(status_code=404, detail=f"Categoria ID {id_categoria} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": "Categoria atualizada."
-        }
-
+        return {"status": "success", "mensagem": "Categoria atualizada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Não foi possível atualizar a categoria. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar a categoria: {str(e)}")
 
-# Atualiza os dados de uma estatística
-@app.put("/api/admin/estatisticas/update")
-def update_estatisticas(dados: EstatisticasUpdateSchema):
+@app.put("/api/admin/estatisticas/{id_estatistica}")
+def update_estatisticas(id_estatistica: int, dados: EstatisticaUpdateSchema):
     try:
         sql = """
             UPDATE organograma.estatisticas_termos
@@ -618,28 +517,19 @@ def update_estatisticas(dados: EstatisticasUpdateSchema):
             WHERE id_estatistica = ?
             RETURNING id_estatistica;
         """
-
-        resultado = executar_query(sql, (dados.id_traducao, dados.quantidade_consultas, dados.reproducoes_audio, dados.nivel_clareza, dados.tempo_retencao_segundos, dados.id_estatistica), fetch_all=False)
+        resultado = executar_query(sql, (dados.id_traducao, dados.quantidade_consultas, dados.reproducoes_audio, dados.nivel_clareza, dados.tempo_retencao_segundos, id_estatistica), fetch_all=False)
 
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Estatística ID {dados.id_estatistica} não encontrada.")
+            raise HTTPException(status_code=404, detail=f"Estatística ID {id_estatistica} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": "Estatística atualizada."
-        }
-
+        return {"status": "success", "mensagem": "Estatística atualizada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail= f"Não foi possível atualizar a estatística. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar a estatística: {str(e)}")
 
-# Atualiza uma mídia
-@app.put("/api/admin/midias/update")
-def update_midia(dados: MidiaUpdateSchema):
+@app.put("/api/admin/midias/{id_midia}")
+def update_midia(id_midia: int, dados: MidiaUpdateSchema):
     try:
         sql = """
             UPDATE organograma.midias
@@ -649,28 +539,19 @@ def update_midia(dados: MidiaUpdateSchema):
             WHERE id_midia = ?
             RETURNING id_midia;
         """
-
-        resultado = executar_query(sql, (dados.tipo, dados.url_arquivo, dados.id_traducao, dados.id_midia), fetch_all=False)
+        resultado = executar_query(sql, (dados.tipo, dados.url_arquivo, dados.id_traducao, id_midia), fetch_all=False)
 
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Mídia ID {dados.id_midia} não encontrada.")
+            raise HTTPException(status_code=404, detail=f"Mídia ID {id_midia} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": "Mídia atualizada com sucesso."
-        }
-
+        return {"status": "success", "mensagem": "Mídia atualizada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-                status_code=400,
-                detail= f"Não foi possível atualizar a mídia. (Erro: {str(e)})"
-            )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar a mídia: {str(e)}")
 
-# Atualiza uma tag
-@app.put("/api/admin/tags/update")
-def update_tag(dados: TagUpdateSchema):
+@app.put("/api/admin/tags/{id_tag}")
+def update_tag(id_tag: int, dados: TagSchema):
     try:
         sql = """
             UPDATE organograma.tags
@@ -678,28 +559,19 @@ def update_tag(dados: TagUpdateSchema):
             WHERE id_tag = ?
             RETURNING id_tag;
         """
-
-        resultado = executar_query(sql, (dados.nome, dados.id_tag), fetch_all=False)
+        resultado = executar_query(sql, (dados.nome, id_tag), fetch_all=False)
 
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Tag ID {dados.id_tag} não encontrada.")
+            raise HTTPException(status_code=404, detail=f"Tag ID {id_tag} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": "Tag atualizada com sucesso."
-        }
-
+        return {"status": "success", "mensagem": "Tag atualizada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-                status_code=400,
-                detail= f"Não foi possível atualizar a tag. (Erro: {str(e)})"
-            )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar a tag: {str(e)}")
 
-# Atualiza um termo akwe
-@app.put("/api/admin/termosakwe/update")
-def update_termo_akwe(dados: TermoAkweUpdateSchema):
+@app.put("/api/admin/termos-akwe/{id_termo_akwe}")
+def update_termo_akwe(id_termo_akwe: int, dados: TermoAkweSchema):
     try:
         if dados.raiz_gramatical:
             sql = """
@@ -709,8 +581,7 @@ def update_termo_akwe(dados: TermoAkweUpdateSchema):
                 WHERE id_termo_akwe = ?
                 RETURNING id_termo_akwe;
             """
-            resultado = executar_query(sql, (dados.texto_akwe, dados.raiz_gramatical, dados.id_termo_akwe), fetch_all=False)
-
+            resultado = executar_query(sql, (dados.texto_akwe, dados.raiz_gramatical, id_termo_akwe), fetch_all=False)
         else:
             sql = """
                 UPDATE organograma.termos_akwe
@@ -718,27 +589,19 @@ def update_termo_akwe(dados: TermoAkweUpdateSchema):
                 WHERE id_termo_akwe = ?
                 RETURNING id_termo_akwe;
             """
-            resultado = executar_query(sql, (dados.texto_akwe, dados.id_termo_akwe), fetch_all=False)
+            resultado = executar_query(sql, (dados.texto_akwe, id_termo_akwe), fetch_all=False)
 
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Termo Akwẽ ID {dados.id_termo_akwe} não encontrado.")
+            raise HTTPException(status_code=404, detail=f"Termo Akwẽ ID {id_termo_akwe} não encontrado.")
 
-        return {
-            "status": "success",
-            "mensagem": "Termo akwe atualizado."
-        }
-    
+        return {"status": "success", "mensagem": "Termo Akwẽ atualizado com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail= f"Não foi possível atualizar o termo akwe. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar o termo Akwẽ: {str(e)}")
 
-# Atualiza um termo português
-@app.put("/api/admin/termospt/update")
-def update_termo_pt(dados: TermoPtUpdateSchema):
+@app.put("/api/admin/termos-portugues/{id_termo_pt}")
+def update_termo_pt(id_termo_pt: int, dados: TermoPtSchema):
     try:
         sql = """
             UPDATE organograma.termos_portugues
@@ -746,241 +609,142 @@ def update_termo_pt(dados: TermoPtUpdateSchema):
             WHERE id_termo_pt = ?
             RETURNING id_termo_pt;
         """
-
-        resultado = executar_query(sql, (dados.texto_portugues, dados.id_termo_pt), fetch_all=False)
+        resultado = executar_query(sql, (dados.texto_portugues, id_termo_pt), fetch_all=False)
 
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Termo PT ID {dados.id_termo_pt} não encontrado.")
+            raise HTTPException(status_code=404, detail=f"Termo PT ID {id_termo_pt} não encontrado.")
 
-        return {
-            "status": "success",
-            "mensagem": "Termo português atualizada com sucesso."
-        }
-
+        return {"status": "success", "mensagem": "Termo português atualizado com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-                status_code=400,
-                detail= f"Não foi possível atualizar o termo português. (Erro: {str(e)})"
-            )
+        raise HTTPException(status_code=400, detail=f"Não foi possível atualizar o termo português: {str(e)}")
 
 # endregion
 
-# region DELETE
+# region ROTAS DE DELEÇÃO (DELETE)
 
-# Rota pra deletar uma tradução
-@app.delete("/api/admin/traducao/delete")
+@app.delete("/api/admin/traducoes/{id_traducao}")
 def delete_traducao(id_traducao: int):
     try:
-        # 1. Remove estatística associada primeiro (por causa da FK)
         executar_query("DELETE FROM organograma.estatisticas_termos WHERE id_traducao = ?;", (id_traducao,))
-        
-        # 2. Remove tags associadas
         executar_query("DELETE FROM organograma.termo_tags WHERE id_traducao = ?;", (id_traducao,))
-        
-        # 3. Remove mídias associadas
         executar_query("DELETE FROM organograma.midias WHERE id_traducao = ?;", (id_traducao,))
 
-        # 4. Remove a tradução principal
         resultado = executar_query("DELETE FROM organograma.termos_traducoes WHERE id_traducao = ? RETURNING id_traducao;", (id_traducao,), fetch_all=False)
         
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Tradução ID {id_traducao} não encontrada.")
 
-        return {"status": "Sucesso", "mensagem": f"Tradução #{id_traducao} removida com sucesso!"}
+        return {"status": "success", "mensagem": f"Tradução #{id_traducao} removida com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível deletar a tradução."
-        )
+        raise HTTPException(status_code=400, detail="Não foi possível deletar a tradução.")
 
-# Rota pra deletar um termo português
-@app.delete("/api/admin/termopt/delete")
+@app.delete("/api/admin/termos-portugues/{id_termo_pt}")
 def delete_termo_pt(id_termo_pt: int):
     try:
-        sql = """
-            DELETE FROM organograma.termos_portugues
-            WHERE id_termo_pt = ?
-            RETURNING id_termo_pt;
-        """
+        sql = "DELETE FROM organograma.termos_portugues WHERE id_termo_pt = ? RETURNING id_termo_pt;"
         resultado = executar_query(sql, (id_termo_pt,), fetch_all=False)
 
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Termo PT ID {id_termo_pt} não encontrado.")
 
-        return {
-            "status": "success",
-            "mensagem": f"Termo ID {id_termo_pt} deletado."
-        }
-
+        return {"status": "success", "mensagem": f"Termo ID {id_termo_pt} deletado com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível deletar: o termo está sendo utiliziado em uma ou mais traduções."
-        )
+        raise HTTPException(status_code=400, detail="Não foi possível deletar: o termo está sendo utilizado em uma ou mais traduções.")
 
-# Rota pra deletar um termo akwe
-@app.delete("/api/admin/termoakwe/delete")
+@app.delete("/api/admin/termos-akwe/{id_termo_akwe}")
 def delete_termo_akwe(id_termo_akwe: int):
     try:
-        sql = """
-            DELETE FROM organograma.termos_akwe
-            WHERE id_termo_akwe = ?
-            RETURNING id_termo_akwe;
-        """
+        sql = "DELETE FROM organograma.termos_akwe WHERE id_termo_akwe = ? RETURNING id_termo_akwe;"
         resultado = executar_query(sql, (id_termo_akwe,), fetch_all=False)
         
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Termo Akwẽ ID {id_termo_akwe} não encontrado.")
 
-        return {
-            "status": "success",
-            "mensagem": f"Termo Akwẽ ID {id_termo_akwe} deletado."
-        }
+        return {"status": "success", "mensagem": f"Termo Akwẽ ID {id_termo_akwe} deletado com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível deletar: o termo está sendo utilziado em uma ou mais traduções."
-        )
+        raise HTTPException(status_code=400, detail="Não foi possível deletar: o termo está sendo utilizado em uma ou mais traduções.")
 
-# Rota pra deletar uma categoria
-@app.delete("/api/admin/categorias/delete")
+@app.delete("/api/admin/categorias/{id_categoria}")
 def delete_categoria(id_categoria: int):
     try:
-        sql = """
-            DELETE FROM organograma.categorias WHERE id_categoria = ? RETURNING id_categoria;
-        """
-
+        sql = "DELETE FROM organograma.categorias WHERE id_categoria = ? RETURNING id_categoria;"
         resultado = executar_query(sql, (id_categoria,), fetch_all=False)
 
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Categoria ID {id_categoria} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": f"Categoria ID {id_categoria} deletada."
-        }
-
+        return {"status": "success", "mensagem": f"Categoria ID {id_categoria} deletada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Não foi possível deletar a categoria ID {id_categoria}: ela possui traduções vinculadas. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail=f"Não foi possível deletar a categoria ID {id_categoria}: ela possui traduções vinculadas.")
 
-# Rota pra deletar uma mídia
-@app.delete("/api/admin/midias/delete")
+@app.delete("/api/admin/midias/{id_midia}")
 def delete_midia(id_midia: int):
     try:
-        sql = """
-            DELETE FROM organograma.midias WHERE id_midia = ? RETURNING id_midia;
-        """
-
+        sql = "DELETE FROM organograma.midias WHERE id_midia = ? RETURNING id_midia;"
         resultado = executar_query(sql, (id_midia,), fetch_all=False)
 
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Mídia ID {id_midia} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": f"Mídia ID {id_midia} deletada."
-        }
-
+        return {"status": "success", "mensagem": f"Mídia ID {id_midia} deletada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível deletar a midia."
-        )
+        raise HTTPException(status_code=400, detail="Não foi possível deletar a mídia.")
 
-# Rota pra desconectar uma tag de uma tradução
-@app.delete("/api/admin/termotags/delete")
-def desconectar_tag(dados: TermoTagsSchema):
+@app.delete("/api/admin/termo-tags/{id_traducao}/{id_tag}")
+def desconectar_tag(id_traducao: int, id_tag: int):
     try:
-        sql = """
-            DELETE FROM organograma.termo_tags
-            WHERE id_traducao = ? AND id_tag = ?
-            RETURNING id_traducao;
-        """
-
-        resultado = executar_query(sql, (dados.id_traducao, dados.id_tag), fetch_all=False)
+        sql = "DELETE FROM organograma.termo_tags WHERE id_traducao = ? AND id_tag = ? RETURNING id_traducao;"
+        resultado = executar_query(sql, (id_traducao, id_tag), fetch_all=False)
 
         if not resultado:
             raise HTTPException(status_code=404, detail="Conexão de tag e tradução não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": f"Tag ID {dados.id_tag} desconectada da tradução ID {dados.id_traducao}."
-        }
-
+        return {"status": "success", "mensagem": f"Tag ID {id_tag} desconectada da tradução ID {id_traducao}."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível deletar a conexão de tag com tradução."
-        )
+        raise HTTPException(status_code=400, detail="Não foi possível deletar a conexão de tag com tradução.")
 
-# Rota pra deletar estatística
-@app.delete("/api/admin/estatisticas/delete")
+@app.delete("/api/admin/estatisticas/{id_estatistica}")
 def delete_estatistica(id_estatistica: int):
     try:
-        sql = """
-            DELETE FROM organograma.estatisticas_termos
-            WHERE id_estatistica = ?
-            RETURNING id_estatistica;
-        """
-
+        sql = "DELETE FROM organograma.estatisticas_termos WHERE id_estatistica = ? RETURNING id_estatistica;"
         resultado = executar_query(sql, (id_estatistica,), fetch_all=False)
 
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Estatística ID {id_estatistica} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": "Estatística deletada."
-        }
+        return {"status": "success", "mensagem": "Estatística deletada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Não foi possível deletar a estatística. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail=f"Não foi possível deletar a estatística: {str(e)}")
 
-# Deletar tag
-@app.delete("/api/admin/tags/delete")
+@app.delete("/api/admin/tags/{id_tag}")
 def delete_tag(id_tag: int):
     try:
-        sql = """
-            DELETE FROM organograma.tags WHERE id_tag = ? RETURNING id_tag;
-        """
-
+        sql = "DELETE FROM organograma.tags WHERE id_tag = ? RETURNING id_tag;"
         resultado = executar_query(sql, (id_tag,), fetch_all=False)
 
         if not resultado:
             raise HTTPException(status_code=404, detail=f"Tag ID {id_tag} não encontrada.")
 
-        return {
-            "status": "success",
-            "mensagem": f"Tag ID {id_tag} deletada."
-        }
-
+        return {"status": "success", "mensagem": f"Tag ID {id_tag} deletada com sucesso."}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Não foi possível deletar: a tag está sendo utilziado em uma ou mais relação de tradução com tag. (Erro: {str(e)})"
-        )
+        raise HTTPException(status_code=400, detail="Não foi possível deletar: a tag está sendo utilizada em uma ou mais traduções.")
 
-# endregion
+#endregion
