@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 DATABASE_LOGIN = os.getenv("DATABASE_LOGIN")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
 
 # Instância principal da aplicação FastAPI
 app = FastAPI(
@@ -29,7 +30,7 @@ CONEXAO_ODBC = (
     f"DRIVER={{PostgreSQL Unicode}};"
     f"SERVER=localhost;"
     f"PORT=5432;"
-    f"DATABASE=db_akwe;"
+    f"DATABASE={DATABASE_NAME};"
     f"UID={DATABASE_LOGIN};"
     f"PWD={DATABASE_PASSWORD};"
 )
@@ -95,7 +96,7 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
         cursor = conn.cursor()
         cursor.execute(query, params)
 
-        resultado = True
+        resultado = None
 
         if cursor.description:
             colunas = [coluna[0] for coluna in cursor.description]
@@ -105,6 +106,9 @@ def executar_query(query: str, params: tuple = (), fetch_all: bool = True):
             else:
                 linha = cursor.fetchone()
                 resultado = dict(zip(colunas, linha)) if linha else None
+
+        else:
+            resultado = cursor.rowcount
 
         conn.commit()
         cursor.close()
@@ -631,16 +635,28 @@ def delete_traducao(id_traducao: int):
         executar_query("DELETE FROM organograma.termo_tags WHERE id_traducao = ?;", (id_traducao,))
         executar_query("DELETE FROM organograma.midias WHERE id_traducao = ?;", (id_traducao,))
 
-        resultado = executar_query("DELETE FROM organograma.termos_traducoes WHERE id_traducao = ? RETURNING id_traducao;", (id_traducao,), fetch_all=False)
+        resultado = executar_query(
+            "DELETE FROM organograma.termos_traducoes WHERE id_traducao = ?;", 
+            (id_traducao,), 
+            fetch_all=True
+        )
         
         if not resultado:
-            raise HTTPException(status_code=404, detail=f"Tradução ID {id_traducao} não encontrada.")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Tradução ID {id_traducao} não encontrada."
+            )
 
         return {"status": "success", "mensagem": f"Tradução #{id_traducao} removida com sucesso."}
-    except HTTPException:
-        raise
+
+    except HTTPException as http_err:
+        # Repassa o erro 404 sem deixar cair no erro genérico
+        raise http_err
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Não foi possível deletar a tradução.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Não foi possível deletar a tradução. Erro: {str(e)}"
+        )
 
 @app.delete("/api/admin/termos-portugues/{id_termo_pt}")
 def delete_termo_pt(id_termo_pt: int):
