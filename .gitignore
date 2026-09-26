@@ -9,6 +9,7 @@ ENV/
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # Arquivos de áudio (se estiverem salvos localmente na pasta do projeto)
 *.mp3

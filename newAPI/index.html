@@ -1,0 +1,3561 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Painel Admin - Dicionário Akwẽ-Xerente</title>
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+  >
+
+  <style>
+    body {
+      background-color: #f4f6f9;
+    }
+
+    .card-metric {
+      border-left: 4px solid #0d6efd;
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: #0d6efd;
+    }
+
+    .table-actions .btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .table td {
+      vertical-align: middle;
+    }
+
+    .pagination-info {
+      min-height: 24px;
+    }
+
+    .loading-row {
+      height: 120px;
+    }
+
+    .text-truncate-custom {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    #telaLogin {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #conteudoAdmin {
+      min-height: 100vh;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 430px;
+    }
+
+    .usuario-logado {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ======================================================
+       TELA DE LOGIN
+  ======================================================= -->
+
+  <div id="telaLogin" class="container py-5">
+    <div class="card shadow login-card">
+      <div class="card-body p-4">
+
+        <div class="text-center mb-4">
+          <i class="bi bi-shield-lock fs-1 text-primary"></i>
+
+          <h3 class="mt-2">
+            Acesso administrativo
+          </h3>
+
+          <p class="text-muted mb-0">
+            Dicionário Akwẽ-Xerente
+          </p>
+        </div>
+
+        <div
+          id="erroLogin"
+          class="alert alert-danger d-none"
+          role="alert"
+        ></div>
+
+        <form id="formLogin">
+          <div class="mb-3">
+            <label
+              for="loginUsername"
+              class="form-label"
+            >
+              Usuário
+            </label>
+
+            <input
+              type="text"
+              id="loginUsername"
+              class="form-control"
+              autocomplete="username"
+              required
+            >
+          </div>
+
+          <div class="mb-3">
+            <label
+              for="loginPassword"
+              class="form-label"
+            >
+              Senha
+            </label>
+
+            <input
+              type="password"
+              id="loginPassword"
+              class="form-control"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+
+          <button
+            type="submit"
+            id="btnLogin"
+            class="btn btn-primary w-100"
+          >
+            <i class="bi bi-box-arrow-in-right"></i>
+            Entrar
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======================================================
+       CONTEÚDO ADMINISTRATIVO
+  ======================================================= -->
+
+  <div id="conteudoAdmin" class="d-none">
+
+    <!-- NAVBAR -->
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
+      <div class="container">
+
+        <span class="navbar-brand mb-0 h1 fw-bold">
+          <i class="bi bi-sliders"></i>
+          Painel Admin - Dicionário Akwẽ
+        </span>
+
+        <div class="d-flex align-items-center gap-2">
+
+          <span
+            id="usuarioLogado"
+            class="text-white small usuario-logado"
+          ></span>
+
+          <span class="badge bg-light text-primary">
+            RESTful API v2
+          </span>
+
+          <button
+            type="button"
+            id="btnLogout"
+            class="btn btn-outline-light btn-sm"
+          >
+            <i class="bi bi-box-arrow-right"></i>
+            Sair
+          </button>
+
+        </div>
+      </div>
+    </nav>
+
+
+    <div class="container mb-5">
+
+      <!-- DASHBOARD -->
+
+      <div class="row g-3 mb-4" id="dashboard">
+
+        <div class="col-md-3">
+          <div class="card card-metric shadow-sm p-3">
+            <small class="text-muted fw-bold">
+              Total de Traduções
+            </small>
+
+            <h3
+              id="stat-total-traducoes"
+              class="m-0 text-primary fw-bold"
+            >
+              -
+            </h3>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div
+            class="card card-metric shadow-sm p-3"
+            style="border-left-color: #198754;"
+          >
+            <small class="text-muted fw-bold">
+              Total de Consultas
+            </small>
+
+            <h3
+              id="stat-total-buscas"
+              class="m-0 text-success fw-bold"
+            >
+              -
+            </h3>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div
+            class="card card-metric shadow-sm p-3"
+            style="border-left-color: #ffc107;"
+          >
+            <small class="text-muted fw-bold">
+              Áudios Reproduzidos
+            </small>
+
+            <h3
+              id="stat-total-audios"
+              class="m-0 text-warning fw-bold"
+            >
+              -
+            </h3>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div
+            class="card card-metric shadow-sm p-3"
+            style="border-left-color: #0dcaf0;"
+          >
+            <small class="text-muted fw-bold">
+              Média Nível Clareza
+            </small>
+
+            <h3
+              id="stat-media-clareza"
+              class="m-0 text-info fw-bold"
+            >
+              -
+            </h3>
+          </div>
+        </div>
+
+      </div>
+
+
+      <!-- NAVEGAÇÃO -->
+
+      <ul
+        class="nav nav-pills mb-4 card p-2 shadow-sm flex-row"
+        id="adminTabs"
+        role="tablist"
+      >
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active fw-semibold"
+            id="traducoes-tab"
+            data-bs-toggle="pill"
+            data-bs-target="#tab-traducoes"
+            type="button"
+          >
+            <i class="bi bi-translate"></i>
+            Traduções
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link fw-semibold"
+            id="taxonomia-tab"
+            data-bs-toggle="pill"
+            data-bs-target="#tab-taxonomia"
+            type="button"
+          >
+            <i class="bi bi-tags"></i>
+            Categorias & Tags
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link fw-semibold"
+            id="midias-tab"
+            data-bs-toggle="pill"
+            data-bs-target="#tab-midias"
+            type="button"
+          >
+            <i class="bi bi-folder-symlink"></i>
+            Mídias
+          </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link fw-semibold"
+            id="termos-tab"
+            data-bs-toggle="pill"
+            data-bs-target="#tab-termos"
+            type="button"
+          >
+            <i class="bi bi-journal-text"></i>
+            Termos Isolados
+          </button>
+        </li>
+      </ul>
+
+
+      <!-- CONTEÚDO DAS ABAS -->
+
+      <div class="tab-content" id="adminTabsContent">
+
+        <!-- ==================================================
+             ABA DE TRADUÇÕES
+        =================================================== -->
+
+        <div
+          class="tab-pane fade show active"
+          id="tab-traducoes"
+        >
+          <div class="row">
+
+            <!-- NOVA TRADUÇÃO -->
+
+            <div class="col-md-4 mb-4">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3 text-primary">
+                  <i class="bi bi-plus-circle"></i>
+                  Nova Tradução
+                </h5>
+
+                <form id="formTraducao">
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Termo em Português*
+                    </label>
+
+                    <input
+                      type="text"
+                      id="inputPortugues"
+                      class="form-control"
+                      required
+                      placeholder="Ex: Peito"
+                    >
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Termo em Akwẽ*
+                    </label>
+
+                    <input
+                      type="text"
+                      id="inputAkwe"
+                      class="form-control"
+                      required
+                      placeholder="Ex: danõknõ"
+                    >
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Raiz Gramatical
+                    </label>
+
+                    <input
+                      type="text"
+                      id="inputRaiz"
+                      class="form-control"
+                      placeholder="Ex: nõknõ"
+                    >
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Categoria*
+                    </label>
+
+                    <select
+                      id="selectCategoriaForm"
+                      class="form-select"
+                      required
+                    >
+                      <option value="">
+                        Carregando categorias...
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Contexto / Explicação
+                    </label>
+
+                    <textarea
+                      id="inputContexto"
+                      class="form-control"
+                      rows="2"
+                      placeholder="Ex: Uso na triagem médica..."
+                    ></textarea>
+                  </div>
+
+                  <button
+                    type="submit"
+                    class="btn btn-primary w-100"
+                  >
+                    Salvar Tradução
+                  </button>
+
+                </form>
+              </div>
+            </div>
+
+
+            <!-- LISTAGEM DE TRADUÇÕES -->
+
+            <div class="col-md-8">
+              <div class="card shadow-sm p-4">
+
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                  <h5 class="card-title m-0">
+                    <i class="bi bi-book"></i>
+                    Dicionário de Traduções
+                  </h5>
+
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    id="btnAtualizarTraducoes"
+                    type="button"
+                  >
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Atualizar
+                  </button>
+                </div>
+
+
+                <!-- BUSCA -->
+
+                <div class="input-group input-group-sm mb-3">
+
+                  <input
+                    type="search"
+                    id="inputBuscaTraducoes"
+                    class="form-control"
+                    placeholder="Buscar por português, Akwẽ ou raiz gramatical..."
+                  >
+
+                  <button
+                    class="btn btn-outline-secondary"
+                    id="btnBuscarTraducoes"
+                    type="button"
+                  >
+                    <i class="bi bi-search"></i>
+                    Buscar
+                  </button>
+
+                  <button
+                    class="btn btn-outline-danger"
+                    id="btnLimparBusca"
+                    type="button"
+                  >
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+
+                </div>
+
+
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+
+                    <thead class="table-light">
+                      <tr>
+                        <th>ID</th>
+                        <th>Português / Akwẽ</th>
+                        <th>Categoria</th>
+                        <th>Tags</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+
+                    <tbody id="tabelaTraducoes">
+                      <tr class="loading-row">
+                        <td
+                          colspan="5"
+                          class="text-center text-muted"
+                        >
+                          Carregando...
+                        </td>
+                      </tr>
+                    </tbody>
+
+                  </table>
+                </div>
+
+
+                <!-- PAGINAÇÃO -->
+
+                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+
+                  <small
+                    id="infoPaginacao"
+                    class="text-muted pagination-info"
+                  ></small>
+
+                  <div class="btn-group">
+
+                    <button
+                      id="btnPaginaAnterior"
+                      class="btn btn-sm btn-outline-primary"
+                      type="button"
+                    >
+                      <i class="bi bi-chevron-left"></i>
+                      Anterior
+                    </button>
+
+                    <button
+                      id="btnPaginaAtual"
+                      class="btn btn-sm btn-primary"
+                      type="button"
+                      disabled
+                    >
+                      Página 1
+                    </button>
+
+                    <button
+                      id="btnPaginaProxima"
+                      class="btn btn-sm btn-outline-primary"
+                      type="button"
+                    >
+                      Próxima
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- ==================================================
+             ABA DE CATEGORIAS E TAGS
+        =================================================== -->
+
+        <div
+          class="tab-pane fade"
+          id="tab-taxonomia"
+        >
+          <div class="row">
+
+            <div class="col-md-6 mb-4">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3">
+                  <i class="bi bi-folder2-open"></i>
+                  Categorias
+                </h5>
+
+                <form
+                  id="formCategoria"
+                  class="d-flex gap-2 mb-3"
+                >
+                  <input
+                    type="text"
+                    id="inputNomeCategoria"
+                    class="form-control"
+                    placeholder="Nova categoria..."
+                    required
+                  >
+
+                  <button
+                    type="submit"
+                    class="btn btn-success"
+                  >
+                    Criar
+                  </button>
+                </form>
+
+                <ul
+                  class="list-group"
+                  id="listaCategorias"
+                >
+                  <li class="list-group-item text-muted">
+                    Carregando...
+                  </li>
+                </ul>
+
+              </div>
+            </div>
+
+
+            <div class="col-md-6 mb-4">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3">
+                  <i class="bi bi-tags"></i>
+                  Tags
+                </h5>
+
+                <form
+                  id="formTag"
+                  class="d-flex gap-2 mb-3"
+                >
+                  <input
+                    type="text"
+                    id="inputNomeTag"
+                    class="form-control"
+                    placeholder="Nova tag..."
+                    required
+                  >
+
+                  <button
+                    type="submit"
+                    class="btn btn-success"
+                  >
+                    Criar
+                  </button>
+                </form>
+
+                <div
+                  id="containerTags"
+                  class="d-flex flex-wrap gap-2"
+                >
+                  <span class="text-muted">
+                    Carregando...
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- ==================================================
+             ABA DE MÍDIAS
+        =================================================== -->
+
+        <div
+          class="tab-pane fade"
+          id="tab-midias"
+        >
+          <div class="row">
+
+            <div class="col-md-4 mb-4">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3">
+                  <i class="bi bi-file-earmark-music"></i>
+                  Cadastrar Mídia
+                </h5>
+
+                <form id="formMidia">
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      ID da Tradução*
+                    </label>
+
+                    <input
+                      type="number"
+                      id="inputMidiaTraducaoId"
+                      class="form-control"
+                      required
+                      placeholder="Ex: 1"
+                    >
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Tipo de Mídia*
+                    </label>
+
+                    <select
+                      id="selectTipoMidia"
+                      class="form-select"
+                      required
+                    >
+                      <option value="audio">
+                        Áudio (.mp3/wav)
+                      </option>
+
+                      <option value="imagem">
+                        Imagem (.jpg/png)
+                      </option>
+
+                      <option value="video">
+                        Vídeo (.mp4)
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      URL do Arquivo*
+                    </label>
+
+                    <input
+                      type="url"
+                      id="inputUrlMidia"
+                      class="form-control"
+                      required
+                      placeholder="https://exemplo.com/audio.mp3"
+                    >
+                  </div>
+
+                  <button
+                    type="submit"
+                    class="btn btn-primary w-100"
+                  >
+                    Salvar Mídia
+                  </button>
+
+                </form>
+              </div>
+            </div>
+
+
+            <div class="col-md-8">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3">
+                  <i class="bi bi-collection-play"></i>
+                  Mídias Vinculadas
+                </h5>
+
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+
+                    <thead class="table-light">
+                      <tr>
+                        <th>ID</th>
+                        <th>Tipo</th>
+                        <th>URL / Arquivo</th>
+                        <th>Tradução ID</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+
+                    <tbody id="tabelaMidias">
+                      <tr>
+                        <td
+                          colspan="5"
+                          class="text-center text-muted"
+                        >
+                          Carregando...
+                        </td>
+                      </tr>
+                    </tbody>
+
+                  </table>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- ==================================================
+             ABA DE TERMOS
+        =================================================== -->
+
+        <div
+          class="tab-pane fade"
+          id="tab-termos"
+        >
+          <div class="row">
+
+            <!-- TERMOS PORTUGUESES -->
+
+            <div class="col-md-6 mb-4">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3">
+                  <i class="bi bi-alphabet"></i>
+                  Termos em Português
+                </h5>
+
+                <form
+                  id="formAddTermoPT"
+                  class="d-flex gap-2 mb-3"
+                >
+                  <input
+                    type="text"
+                    id="inputAddTermoPT"
+                    class="form-control"
+                    placeholder="Novo termo PT..."
+                    required
+                  >
+
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                  >
+                    <i class="bi bi-plus-lg"></i>
+                  </button>
+                </form>
+
+                <div
+                  class="table-responsive"
+                  style="max-height: 400px;"
+                >
+                  <table class="table table-sm table-hover align-middle">
+
+                    <thead class="table-light">
+                      <tr>
+                        <th>ID</th>
+                        <th>Termo</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+
+                    <tbody id="tabelaTermosPT"></tbody>
+
+                  </table>
+                </div>
+
+              </div>
+            </div>
+
+
+            <!-- TERMOS AKWẼ -->
+
+            <div class="col-md-6 mb-4">
+              <div class="card shadow-sm p-4">
+
+                <h5 class="card-title mb-3">
+                  <i class="bi bi-chat-left-text"></i>
+                  Termos em Akwẽ
+                </h5>
+
+                <form
+                  id="formAddTermoAkwe"
+                  class="row g-2 mb-3"
+                >
+                  <div class="col-6">
+                    <input
+                      type="text"
+                      id="inputAddTermoAkwe"
+                      class="form-control"
+                      placeholder="Novo termo Akwẽ..."
+                      required
+                    >
+                  </div>
+
+                  <div class="col-4">
+                    <input
+                      type="text"
+                      id="inputAddRaizAkwe"
+                      class="form-control"
+                      placeholder="Raiz opcional"
+                    >
+                  </div>
+
+                  <div class="col-2">
+                    <button
+                      type="submit"
+                      class="btn btn-primary w-100"
+                    >
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                </form>
+
+                <div
+                  class="table-responsive"
+                  style="max-height: 400px;"
+                >
+                  <table class="table table-sm table-hover align-middle">
+
+                    <thead class="table-light">
+                      <tr>
+                        <th>ID</th>
+                        <th>Termo</th>
+                        <th>Raiz</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+
+                    <tbody id="tabelaTermosAkwe"></tbody>
+
+                  </table>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- ======================================================
+         MODAL DE EDIÇÃO DE TRADUÇÃO
+    ======================================================= -->
+
+    <div
+      class="modal fade"
+      id="modalEditarTraducao"
+      tabindex="-1"
+    >
+      <div class="modal-dialog">
+
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Editar Tradução #
+              <span id="editTraducaoId"></span>
+            </h5>
+
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+
+          <div class="modal-body">
+
+            <form id="formEditarTraducao">
+
+              <input
+                type="hidden"
+                id="editInputId"
+              >
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Categoria
+                </label>
+
+                <select
+                  id="editSelectCategoria"
+                  class="form-select"
+                  required
+                ></select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Contexto / Explicação
+                </label>
+
+                <textarea
+                  id="editInputContexto"
+                  class="form-control"
+                  rows="3"
+                ></textarea>
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn-primary w-100"
+              >
+                Atualizar Tradução
+              </button>
+
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================
+         MODAL DE TAG
+    ======================================================= -->
+
+    <div
+      class="modal fade"
+      id="modalConectarTag"
+      tabindex="-1"
+    >
+      <div class="modal-dialog modal-sm">
+
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Vincular Tag
+            </h5>
+
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+
+          <div class="modal-body">
+
+            <form id="formVincularTag">
+
+              <input
+                type="hidden"
+                id="tagTraducaoId"
+              >
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Selecione a Tag
+                </label>
+
+                <select
+                  id="selectTagVinculo"
+                  class="form-select"
+                  required
+                ></select>
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn-success w-100"
+              >
+                Vincular
+              </button>
+
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================
+         MODAL EDITAR TERMO PORTUGUÊS
+    ======================================================= -->
+
+    <div
+      class="modal fade"
+      id="modalEditarTermoPT"
+      tabindex="-1"
+    >
+      <div class="modal-dialog modal-sm">
+
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Editar Termo em Português
+            </h5>
+
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+
+          <div class="modal-body">
+
+            <form id="formEditarTermoPT">
+
+              <input
+                type="hidden"
+                id="editTermoPTId"
+              >
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Texto em Português
+                </label>
+
+                <input
+                  type="text"
+                  id="editTermoPTTexto"
+                  class="form-control"
+                  required
+                >
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn-primary w-100"
+              >
+                Salvar Alteração
+              </button>
+
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================
+         MODAL EDITAR TERMO AKWẼ
+    ======================================================= -->
+
+    <div
+      class="modal fade"
+      id="modalEditarTermoAkwe"
+      tabindex="-1"
+    >
+      <div class="modal-dialog">
+
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Editar Termo em Akwẽ
+            </h5>
+
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+
+          <div class="modal-body">
+
+            <form id="formEditarTermoAkwe">
+
+              <input
+                type="hidden"
+                id="editTermoAkweId"
+              >
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Texto em Akwẽ
+                </label>
+
+                <input
+                  type="text"
+                  id="editTermoAkweTexto"
+                  class="form-control"
+                  required
+                >
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Raiz Gramatical
+                </label>
+
+                <input
+                  type="text"
+                  id="editTermoAkweRaiz"
+                  class="form-control"
+                >
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn-primary w-100"
+              >
+                Salvar Alteração
+              </button>
+
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /*
+     * =====================================================
+     * CONFIGURAÇÃO PRINCIPAL
+     * =====================================================
+     *
+     * Se o index.html for servido pelo próprio FastAPI:
+     *
+     *     const API_BASE_URL = "";
+     *
+     * Se o index.html estiver hospedado em outro lugar:
+     *
+     *     const API_BASE_URL =
+     *       "https://tinfoil-litmus-cytoplasm.ngrok-free.dev";
+     */
+
+    const API_BASE_URL = "";
+
+    const API_URL = `${API_BASE_URL}/api`;
+
+    const TOKEN_STORAGE_KEY = "akwe_admin_token";
+    const USER_STORAGE_KEY = "akwe_admin_user";
+
+    const TRADUCOES_POR_PAGINA = 50;
+
+
+    /*
+     * =====================================================
+     * ESTADO DA APLICAÇÃO
+     * =====================================================
+     */
+
+    let tokenAdmin = localStorage.getItem(
+      TOKEN_STORAGE_KEY
+    );
+
+    let usuarioLogado = null;
+
+    try {
+      usuarioLogado = JSON.parse(
+        localStorage.getItem(USER_STORAGE_KEY) || "null"
+      );
+    } catch {
+      usuarioLogado = null;
+    }
+
+    let paginaAtual = 1;
+    let buscaAtual = "";
+
+    let modalEdit;
+    let modalTag;
+    let modalEditPT;
+    let modalEditAkwe;
+
+
+    /*
+     * =====================================================
+     * FUNÇÕES HTTP E AUTENTICAÇÃO
+     * =====================================================
+     */
+
+    function headersBase(contemJson = false) {
+      const headers = {
+        "Accept": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      };
+
+      if (contemJson) {
+        headers["Content-Type"] = "application/json";
+      }
+
+      if (tokenAdmin) {
+        headers["Authorization"] =
+          `Bearer ${tokenAdmin}`;
+      }
+
+      return headers;
+    }
+
+
+    async function respostaJson(response) {
+      const texto = await response.text();
+
+      if (!texto) {
+        return {};
+      }
+
+      try {
+        return JSON.parse(texto);
+      } catch {
+        return {
+          detail: texto
+        };
+      }
+    }
+
+
+    async function apiFetch(endpoint, options = {}) {
+      const response = await fetch(
+        `${API_URL}${endpoint}`,
+        {
+          ...options,
+
+          headers: {
+            ...headersBase(Boolean(options.body)),
+            ...(options.headers || {})
+          }
+        }
+      );
+
+      if (response.status === 401) {
+        let data = {};
+
+        try {
+          data = await respostaJson(response);
+        } catch {
+          data = {};
+        }
+
+        encerrarSessao();
+
+        throw new Error(
+          data.detail ||
+          "Sua sessão expirou. Faça login novamente."
+        );
+      }
+
+      if (response.status === 403) {
+        const data = await respostaJson(response);
+
+        throw new Error(
+          data.detail ||
+          "Você não possui permissão para esta operação."
+        );
+      }
+
+      return response;
+    }
+
+
+    function salvarSessao(token, usuario) {
+      tokenAdmin = token;
+      usuarioLogado = usuario;
+
+      localStorage.setItem(
+        TOKEN_STORAGE_KEY,
+        token
+      );
+
+      localStorage.setItem(
+        USER_STORAGE_KEY,
+        JSON.stringify(usuario)
+      );
+    }
+
+
+    function encerrarSessao() {
+      tokenAdmin = null;
+      usuarioLogado = null;
+
+      localStorage.removeItem(
+        TOKEN_STORAGE_KEY
+      );
+
+      localStorage.removeItem(
+        USER_STORAGE_KEY
+      );
+
+      mostrarTelaLogin();
+    }
+
+
+    function mostrarTelaLogin() {
+      document
+        .getElementById("telaLogin")
+        .classList.remove("d-none");
+
+      document
+        .getElementById("conteudoAdmin")
+        .classList.add("d-none");
+    }
+
+
+    function mostrarPainelAdmin(usuario) {
+      usuarioLogado = usuario;
+
+      document
+        .getElementById("telaLogin")
+        .classList.add("d-none");
+
+      document
+        .getElementById("conteudoAdmin")
+        .classList.remove("d-none");
+
+      const elementoUsuario =
+        document.getElementById("usuarioLogado");
+
+      if (elementoUsuario) {
+        elementoUsuario.textContent =
+          `${usuario.username} (${usuario.perfil})`;
+      }
+    }
+
+
+    async function fazerLogin(event) {
+      event.preventDefault();
+
+      const username = document
+        .getElementById("loginUsername")
+        .value
+        .trim();
+
+      const password = document
+        .getElementById("loginPassword")
+        .value;
+
+      const erro = document
+        .getElementById("erroLogin");
+
+      const botao = document
+        .getElementById("btnLogin");
+
+      erro.classList.add("d-none");
+      erro.textContent = "";
+
+      botao.disabled = true;
+
+      botao.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        Entrando...
+      `;
+
+      try {
+        const response = await fetch(
+          `${API_URL}/auth/login`,
+          {
+            method: "POST",
+            headers: headersBase(true),
+            body: JSON.stringify({
+              username,
+              password
+            })
+          }
+        );
+
+        const data = await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Usuário ou senha inválidos."
+          );
+        }
+
+        salvarSessao(
+          data.access_token,
+          data.usuario
+        );
+
+        mostrarPainelAdmin(data.usuario);
+        carregarTudo();
+
+      } catch (error) {
+        erro.textContent = error.message;
+        erro.classList.remove("d-none");
+
+      } finally {
+        botao.disabled = false;
+
+        botao.innerHTML = `
+          <i class="bi bi-box-arrow-in-right"></i>
+          Entrar
+        `;
+      }
+    }
+
+
+    async function validarSessaoExistente() {
+      if (!tokenAdmin) {
+        mostrarTelaLogin();
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          "/auth/me"
+        );
+
+        const data = await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail || "Sessão inválida."
+          );
+        }
+
+        salvarSessao(
+          tokenAdmin,
+          data.usuario
+        );
+
+        mostrarPainelAdmin(data.usuario);
+        carregarTudo();
+
+      } catch (error) {
+        console.error(
+          "Sessão inválida:",
+          error
+        );
+
+        encerrarSessao();
+      }
+    }
+
+
+    function mostrarErro(mensagem) {
+      alert(`❌ ${mensagem}`);
+    }
+
+
+    function mostrarSucesso(mensagem) {
+      alert(`✅ ${mensagem}`);
+    }
+
+
+    function escaparHtml(valor) {
+      return String(valor ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+
+    /*
+     * =====================================================
+     * INICIALIZAÇÃO
+     * =====================================================
+     */
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        modalEdit = new bootstrap.Modal(
+          document.getElementById(
+            "modalEditarTraducao"
+          )
+        );
+
+        modalTag = new bootstrap.Modal(
+          document.getElementById(
+            "modalConectarTag"
+          )
+        );
+
+        modalEditPT = new bootstrap.Modal(
+          document.getElementById(
+            "modalEditarTermoPT"
+          )
+        );
+
+        modalEditAkwe = new bootstrap.Modal(
+          document.getElementById(
+            "modalEditarTermoAkwe"
+          )
+        );
+
+        configurarEventos();
+        validarSessaoExistente();
+      }
+    );
+
+
+    function configurarEventos() {
+      document
+        .getElementById("formLogin")
+        .addEventListener(
+          "submit",
+          fazerLogin
+        );
+
+      document
+        .getElementById("btnLogout")
+        .addEventListener(
+          "click",
+          encerrarSessao
+        );
+
+      document
+        .getElementById("btnPaginaAnterior")
+        .addEventListener(
+          "click",
+          paginaAnterior
+        );
+
+      document
+        .getElementById("btnPaginaProxima")
+        .addEventListener(
+          "click",
+          paginaProxima
+        );
+
+      document
+        .getElementById("btnAtualizarTraducoes")
+        .addEventListener(
+          "click",
+          () => carregarTraducoes(paginaAtual)
+        );
+
+      document
+        .getElementById("btnBuscarTraducoes")
+        .addEventListener(
+          "click",
+          buscarTraducoes
+        );
+
+      document
+        .getElementById("btnLimparBusca")
+        .addEventListener(
+          "click",
+          limparBusca
+        );
+
+      document
+        .getElementById("inputBuscaTraducoes")
+        .addEventListener(
+          "keydown",
+          event => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              buscarTraducoes();
+            }
+          }
+        );
+
+      document
+        .getElementById("formTraducao")
+        .addEventListener(
+          "submit",
+          criarTraducao
+        );
+
+      document
+        .getElementById("formEditarTraducao")
+        .addEventListener(
+          "submit",
+          atualizarTraducao
+        );
+
+      document
+        .getElementById("formCategoria")
+        .addEventListener(
+          "submit",
+          criarCategoria
+        );
+
+      document
+        .getElementById("formTag")
+        .addEventListener(
+          "submit",
+          criarTag
+        );
+
+      document
+        .getElementById("formVincularTag")
+        .addEventListener(
+          "submit",
+          vincularTag
+        );
+
+      document
+        .getElementById("formMidia")
+        .addEventListener(
+          "submit",
+          criarMidia
+        );
+
+      document
+        .getElementById("formAddTermoPT")
+        .addEventListener(
+          "submit",
+          criarTermoPT
+        );
+
+      document
+        .getElementById("formEditarTermoPT")
+        .addEventListener(
+          "submit",
+          atualizarTermoPT
+        );
+
+      document
+        .getElementById("formAddTermoAkwe")
+        .addEventListener(
+          "submit",
+          criarTermoAkwe
+        );
+
+      document
+        .getElementById("formEditarTermoAkwe")
+        .addEventListener(
+          "submit",
+          atualizarTermoAkwe
+        );
+    }
+
+
+    function carregarTudo() {
+      carregarEstatisticas();
+      carregarCategorias();
+      carregarTags();
+      carregarTraducoes(1);
+      carregarMidias();
+      carregarTermosPT();
+      carregarTermosAkwe();
+    }
+
+
+    /*
+     * =====================================================
+     * ESTATÍSTICAS
+     * =====================================================
+     */
+
+    async function carregarEstatisticas() {
+      try {
+        const response = await apiFetch(
+          "/admin/estatisticas/overview"
+        );
+
+        const data = await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar estatísticas."
+          );
+        }
+
+        const stats =
+          data.estatisticas || {};
+
+        document
+          .getElementById("stat-total-traducoes")
+          .innerText =
+          stats.total_traducoes || 0;
+
+        document
+          .getElementById("stat-total-buscas")
+          .innerText =
+          stats.total_consultas || 0;
+
+        document
+          .getElementById("stat-total-audios")
+          .innerText =
+          stats.total_audios_ouvidos || 0;
+
+        document
+          .getElementById("stat-media-clareza")
+          .innerText =
+          `${stats.media_nivel_clareza || 0} / 5`;
+
+      } catch (error) {
+        console.error(
+          "Erro estatísticas:",
+          error
+        );
+      }
+    }
+
+
+    /*
+     * =====================================================
+     * TRADUÇÕES
+     * =====================================================
+     */
+
+    async function carregarTraducoes(pagina = 1) {
+      const tabela =
+        document.getElementById(
+          "tabelaTraducoes"
+        );
+
+      tabela.innerHTML = `
+        <tr class="loading-row">
+          <td colspan="5" class="text-center text-muted">
+            <div class="spinner-border spinner-border-sm me-2"></div>
+            Carregando traduções...
+          </td>
+        </tr>
+      `;
+
+      try {
+        paginaAtual = pagina;
+
+        const params = new URLSearchParams({
+          page: String(paginaAtual),
+          limit: String(TRADUCOES_POR_PAGINA)
+        });
+
+        if (buscaAtual.trim()) {
+          params.set(
+            "busca",
+            buscaAtual.trim()
+          );
+        }
+
+        const response = await apiFetch(
+          `/admin/traducoes?${params.toString()}`
+        );
+
+        const data = await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar traduções."
+          );
+        }
+
+        const lista =
+          data.termos || [];
+
+        const paginacao =
+          data.paginacao || {};
+
+        tabela.innerHTML = "";
+
+        if (lista.length === 0) {
+          tabela.innerHTML = `
+            <tr>
+              <td colspan="5" class="text-center text-muted">
+                Nenhuma tradução encontrada.
+              </td>
+            </tr>
+          `;
+
+          atualizarPaginacao(paginacao);
+          return;
+        }
+
+        lista.forEach(item => {
+          const tr =
+            document.createElement("tr");
+
+          const contexto =
+            item.explicacao_contexto
+              ? `
+                <div class="small text-muted mt-1">
+                  <i class="bi bi-info-circle"></i>
+                  ${escaparHtml(
+                    item.explicacao_contexto
+                  )}
+                </div>
+              `
+              : "";
+
+          tr.innerHTML = `
+            <td>
+              <strong>
+                #${escaparHtml(
+                  item.id_traducao
+                )}
+              </strong>
+            </td>
+
+            <td>
+              <div class="fw-bold text-dark">
+                ${escaparHtml(
+                  item.texto_portugues
+                )}
+              </div>
+
+              <div class="text-success small">
+                <i class="bi bi-arrow-right-short"></i>
+                ${escaparHtml(
+                  item.texto_akwe
+                )}
+
+                <code>
+                  (${escaparHtml(
+                    item.raiz_gramatical ||
+                    "sem raiz"
+                  )})
+                </code>
+              </div>
+
+              ${contexto}
+            </td>
+
+            <td>
+              <span class="badge bg-secondary">
+                ${escaparHtml(
+                  item.categoria || "-"
+                )}
+              </span>
+            </td>
+
+            <td>
+              <small class="text-muted">
+                ${escaparHtml(
+                  item.tags || "Sem tags"
+                )}
+              </small>
+            </td>
+
+            <td class="table-actions">
+
+              <button
+                class="btn btn-sm btn-outline-success btn-tag"
+                title="Adicionar Tag"
+              >
+                <i class="bi bi-tag"></i>
+              </button>
+
+              <button
+                class="btn btn-sm btn-outline-warning btn-editar"
+                title="Editar"
+              >
+                <i class="bi bi-pencil"></i>
+              </button>
+
+              <button
+                class="btn btn-sm btn-outline-danger btn-deletar"
+                title="Deletar"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+
+            </td>
+          `;
+
+          tr
+            .querySelector(".btn-tag")
+            .addEventListener(
+              "click",
+              () => abrirModalTag(
+                item.id_traducao
+              )
+            );
+
+          tr
+            .querySelector(".btn-editar")
+            .addEventListener(
+              "click",
+              () => abrirModalEdit(
+                item.id_traducao,
+                item.explicacao_contexto || "",
+                item.categoria || ""
+              )
+            );
+
+          tr
+            .querySelector(".btn-deletar")
+            .addEventListener(
+              "click",
+              () => deletarTraducao(
+                item.id_traducao
+              )
+            );
+
+          tabela.appendChild(tr);
+        });
+
+        atualizarPaginacao(paginacao);
+
+      } catch (error) {
+        console.error(
+          "Erro traduções:",
+          error
+        );
+
+        tabela.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center text-danger">
+              ${escaparHtml(error.message)}
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+
+    function atualizarPaginacao(paginacao) {
+      const pagina =
+        paginacao.pagina_atual ||
+        paginaAtual;
+
+      const totalPaginas =
+        paginacao.total_paginas || 0;
+
+      const totalRegistros =
+        paginacao.total_registros || 0;
+
+      const btnAnterior =
+        document.getElementById(
+          "btnPaginaAnterior"
+        );
+
+      const btnProxima =
+        document.getElementById(
+          "btnPaginaProxima"
+        );
+
+      const btnAtual =
+        document.getElementById(
+          "btnPaginaAtual"
+        );
+
+      const info =
+        document.getElementById(
+          "infoPaginacao"
+        );
+
+      btnAnterior.disabled =
+        !paginacao.tem_anterior;
+
+      btnProxima.disabled =
+        !paginacao.tem_proxima;
+
+      btnAtual.innerText =
+        totalPaginas > 0
+          ? `Página ${pagina} de ${totalPaginas}`
+          : "Página 0";
+
+      info.innerText =
+        `${totalRegistros} tradução(ões) encontrada(s)`;
+
+      paginaAtual = pagina;
+    }
+
+
+    function paginaAnterior() {
+      if (paginaAtual > 1) {
+        carregarTraducoes(
+          paginaAtual - 1
+        );
+      }
+    }
+
+
+    function paginaProxima() {
+      carregarTraducoes(
+        paginaAtual + 1
+      );
+    }
+
+
+    function buscarTraducoes() {
+      buscaAtual =
+        document
+          .getElementById(
+            "inputBuscaTraducoes"
+          )
+          .value
+          .trim();
+
+      paginaAtual = 1;
+
+      carregarTraducoes(1);
+    }
+
+
+    function limparBusca() {
+      document
+        .getElementById(
+          "inputBuscaTraducoes"
+        )
+        .value = "";
+
+      buscaAtual = "";
+      paginaAtual = 1;
+
+      carregarTraducoes(1);
+    }
+
+
+    async function criarTraducao(event) {
+      event.preventDefault();
+
+      const novoTermo = {
+        texto_portugues:
+          document
+            .getElementById(
+              "inputPortugues"
+            )
+            .value
+            .trim(),
+
+        texto_akwe:
+          document
+            .getElementById(
+              "inputAkwe"
+            )
+            .value
+            .trim(),
+
+        raiz_gramatical:
+          document
+            .getElementById(
+              "inputRaiz"
+            )
+            .value
+            .trim() || null,
+
+        id_categoria:
+          parseInt(
+            document
+              .getElementById(
+                "selectCategoriaForm"
+              )
+              .value
+          ),
+
+        explicacao_contexto:
+          document
+            .getElementById(
+              "inputContexto"
+            )
+            .value
+            .trim() || null
+      };
+
+      try {
+        const response = await apiFetch(
+          "/admin/traducoes",
+          {
+            method: "POST",
+            body: JSON.stringify(novoTermo)
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao cadastrar tradução."
+          );
+        }
+
+        mostrarSucesso(
+          "Tradução cadastrada!"
+        );
+
+        document
+          .getElementById(
+            "formTraducao"
+          )
+          .reset();
+
+        carregarEstatisticas();
+        carregarTraducoes(1);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    function abrirModalEdit(
+      id,
+      contexto,
+      categoria
+    ) {
+      document
+        .getElementById(
+          "editTraducaoId"
+        )
+        .innerText = id;
+
+      document
+        .getElementById(
+          "editInputId"
+        )
+        .value = id;
+
+      document
+        .getElementById(
+          "editInputContexto"
+        )
+        .value = contexto || "";
+
+      const select =
+        document.getElementById(
+          "editSelectCategoria"
+        );
+
+      const option =
+        Array
+          .from(select.options)
+          .find(
+            item =>
+              item.textContent.trim() ===
+              categoria.trim()
+          );
+
+      if (option) {
+        select.value = option.value;
+      }
+
+      modalEdit.show();
+    }
+
+
+    async function atualizarTraducao(event) {
+      event.preventDefault();
+
+      const id =
+        document
+          .getElementById(
+            "editInputId"
+          )
+          .value;
+
+      const dados = {
+        id_categoria:
+          parseInt(
+            document
+              .getElementById(
+                "editSelectCategoria"
+              )
+              .value
+          ),
+
+        explicacao_contexto:
+          document
+            .getElementById(
+              "editInputContexto"
+            )
+            .value
+            .trim() || null
+      };
+
+      try {
+        const response = await apiFetch(
+          `/admin/traducoes/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(dados)
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao atualizar tradução."
+          );
+        }
+
+        modalEdit.hide();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    async function deletarTraducao(id) {
+      if (!confirm(
+        `Tem certeza que deseja deletar a tradução #${id}?`
+      )) {
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/admin/traducoes/${id}`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Não foi possível deletar."
+          );
+        }
+
+        carregarEstatisticas();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    /*
+     * =====================================================
+     * CATEGORIAS
+     * =====================================================
+     */
+
+    async function carregarCategorias() {
+      try {
+        const response = await apiFetch(
+          "/categorias"
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar categorias."
+          );
+        }
+
+        const lista =
+          data.categorias || [];
+
+        const listGroup =
+          document.getElementById(
+            "listaCategorias"
+          );
+
+        const selectForm =
+          document.getElementById(
+            "selectCategoriaForm"
+          );
+
+        const editSelect =
+          document.getElementById(
+            "editSelectCategoria"
+          );
+
+        listGroup.innerHTML = "";
+
+        selectForm.innerHTML = `
+          <option value="">
+            Selecione...
+          </option>
+        `;
+
+        editSelect.innerHTML = "";
+
+        if (lista.length === 0) {
+          listGroup.innerHTML = `
+            <li class="list-group-item text-muted">
+              Nenhuma categoria cadastrada.
+            </li>
+          `;
+        }
+
+        lista.forEach(categoria => {
+          const li =
+            document.createElement("li");
+
+          li.className =
+            "list-group-item d-flex justify-content-between align-items-center";
+
+          li.innerHTML = `
+            <span>
+              <strong>
+                #${escaparHtml(
+                  categoria.id_categoria
+                )}
+              </strong>
+              -
+              ${escaparHtml(
+                categoria.nome
+              )}
+            </span>
+
+            <button
+              class="btn btn-sm btn-outline-danger border-0"
+              title="Deletar categoria"
+            >
+              <i class="bi bi-x-circle"></i>
+            </button>
+          `;
+
+          li
+            .querySelector("button")
+            .addEventListener(
+              "click",
+              () => deletarCategoria(
+                categoria.id_categoria
+              )
+            );
+
+          listGroup.appendChild(li);
+
+          const optionForm =
+            document.createElement(
+              "option"
+            );
+
+          optionForm.value =
+            categoria.id_categoria;
+
+          optionForm.textContent =
+            categoria.nome;
+
+          selectForm.appendChild(
+            optionForm
+          );
+
+          const optionEdit =
+            document.createElement(
+              "option"
+            );
+
+          optionEdit.value =
+            categoria.id_categoria;
+
+          optionEdit.textContent =
+            categoria.nome;
+
+          editSelect.appendChild(
+            optionEdit
+          );
+        });
+
+      } catch (error) {
+        console.error(
+          "Erro categorias:",
+          error
+        );
+      }
+    }
+
+
+    async function criarCategoria(event) {
+      event.preventDefault();
+
+      const nome =
+        document
+          .getElementById(
+            "inputNomeCategoria"
+          )
+          .value
+          .trim();
+
+      try {
+        const response = await apiFetch(
+          "/admin/categorias",
+          {
+            method: "POST",
+            body: JSON.stringify({ nome })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao criar categoria."
+          );
+        }
+
+        document
+          .getElementById(
+            "inputNomeCategoria"
+          )
+          .value = "";
+
+        carregarCategorias();
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    async function deletarCategoria(id) {
+      if (!confirm(
+        "Deletar esta categoria?"
+      )) {
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/admin/categorias/${id}`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Não foi possível deletar a categoria."
+          );
+        }
+
+        carregarCategorias();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    /*
+     * =====================================================
+     * TAGS
+     * =====================================================
+     */
+
+    async function carregarTags() {
+      try {
+        const response = await apiFetch(
+          "/tags"
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar tags."
+          );
+        }
+
+        const lista =
+          data.tags || [];
+
+        const container =
+          document.getElementById(
+            "containerTags"
+          );
+
+        const selectVinculo =
+          document.getElementById(
+            "selectTagVinculo"
+          );
+
+        container.innerHTML = "";
+
+        selectVinculo.innerHTML = `
+          <option value="">
+            Selecione...
+          </option>
+        `;
+
+        if (lista.length === 0) {
+          container.innerHTML = `
+            <span class="text-muted">
+              Nenhuma tag cadastrada.
+            </span>
+          `;
+        }
+
+        lista.forEach(tag => {
+          const badge =
+            document.createElement(
+              "span"
+            );
+
+          badge.className =
+            "badge bg-info text-dark p-2 d-flex align-items-center gap-1";
+
+          badge.innerHTML = `
+            ${escaparHtml(tag.nome)}
+
+            <i
+              class="bi bi-x ms-1"
+              style="cursor:pointer;"
+              title="Deletar tag"
+            ></i>
+          `;
+
+          badge
+            .querySelector("i")
+            .addEventListener(
+              "click",
+              () => deletarTag(
+                tag.id_tag
+              )
+            );
+
+          container.appendChild(badge);
+
+          const option =
+            document.createElement(
+              "option"
+            );
+
+          option.value =
+            tag.id_tag;
+
+          option.textContent =
+            tag.nome;
+
+          selectVinculo.appendChild(
+            option
+          );
+        });
+
+      } catch (error) {
+        console.error(
+          "Erro tags:",
+          error
+        );
+      }
+    }
+
+
+    async function criarTag(event) {
+      event.preventDefault();
+
+      const nome =
+        document
+          .getElementById(
+            "inputNomeTag"
+          )
+          .value
+          .trim();
+
+      try {
+        const response = await apiFetch(
+          "/admin/tags",
+          {
+            method: "POST",
+            body: JSON.stringify({ nome })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao criar tag."
+          );
+        }
+
+        document
+          .getElementById(
+            "inputNomeTag"
+          )
+          .value = "";
+
+        carregarTags();
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    async function deletarTag(id) {
+      if (!confirm(
+        "Deletar esta tag?"
+      )) {
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/admin/tags/${id}`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Tag em uso por traduções."
+          );
+        }
+
+        carregarTags();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    function abrirModalTag(idTraducao) {
+      document
+        .getElementById(
+          "tagTraducaoId"
+        )
+        .value = idTraducao;
+
+      modalTag.show();
+    }
+
+
+    async function vincularTag(event) {
+      event.preventDefault();
+
+      const id_traducao =
+        parseInt(
+          document
+            .getElementById(
+              "tagTraducaoId"
+            )
+            .value
+        );
+
+      const id_tag =
+        parseInt(
+          document
+            .getElementById(
+              "selectTagVinculo"
+            )
+            .value
+        );
+
+      try {
+        const response = await apiFetch(
+          "/admin/termo-tags",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              id_traducao,
+              id_tag
+            })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao vincular tag."
+          );
+        }
+
+        modalTag.hide();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    /*
+     * =====================================================
+     * MÍDIAS
+     * =====================================================
+     */
+
+    async function carregarMidias() {
+      try {
+        const response = await apiFetch(
+          "/midias"
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar mídias."
+          );
+        }
+
+        const tabela =
+          document.getElementById(
+            "tabelaMidias"
+          );
+
+        tabela.innerHTML = "";
+
+        const lista =
+          data.midias || [];
+
+        if (lista.length === 0) {
+          tabela.innerHTML = `
+            <tr>
+              <td
+                colspan="5"
+                class="text-center text-muted"
+              >
+                Nenhuma mídia cadastrada.
+              </td>
+            </tr>
+          `;
+
+          return;
+        }
+
+        lista.forEach(midia => {
+          const tr =
+            document.createElement(
+              "tr"
+            );
+
+          tr.innerHTML = `
+            <td>
+              #${escaparHtml(
+                midia.id_midia
+              )}
+            </td>
+
+            <td>
+              <span class="badge bg-primary">
+                ${escaparHtml(
+                  midia.tipo
+                )}
+              </span>
+            </td>
+
+            <td>
+              <a
+                href="${escaparHtml(
+                  midia.url_arquivo
+                )}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-truncate-custom"
+              >
+                ${escaparHtml(
+                  midia.url_arquivo
+                )}
+              </a>
+            </td>
+
+            <td>
+              Tradução #
+              ${escaparHtml(
+                midia.id_traducao
+              )}
+            </td>
+
+            <td>
+              <button
+                class="btn btn-sm btn-outline-danger"
+                title="Deletar mídia"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          `;
+
+          tr
+            .querySelector("button")
+            .addEventListener(
+              "click",
+              () => deletarMidia(
+                midia.id_midia
+              )
+            );
+
+          tabela.appendChild(tr);
+        });
+
+      } catch (error) {
+        console.error(
+          "Erro mídias:",
+          error
+        );
+      }
+    }
+
+
+    async function criarMidia(event) {
+      event.preventDefault();
+
+      const dados = {
+        id_traducao:
+          parseInt(
+            document
+              .getElementById(
+                "inputMidiaTraducaoId"
+              )
+              .value
+          ),
+
+        tipo:
+          document
+            .getElementById(
+              "selectTipoMidia"
+            )
+            .value,
+
+        url_arquivo:
+          document
+            .getElementById(
+              "inputUrlMidia"
+            )
+            .value
+            .trim()
+      };
+
+      try {
+        const response = await apiFetch(
+          "/admin/midias",
+          {
+            method: "POST",
+            body: JSON.stringify(dados)
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao adicionar mídia."
+          );
+        }
+
+        document
+          .getElementById(
+            "formMidia"
+          )
+          .reset();
+
+        carregarMidias();
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    async function deletarMidia(id) {
+      if (!confirm(
+        "Deletar esta mídia?"
+      )) {
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/admin/midias/${id}`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Não foi possível deletar a mídia."
+          );
+        }
+
+        carregarMidias();
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    /*
+     * =====================================================
+     * TERMOS EM PORTUGUÊS
+     * =====================================================
+     */
+
+    async function carregarTermosPT() {
+      try {
+        const response = await apiFetch(
+          "/termos-portugues"
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar termos em português."
+          );
+        }
+
+        const tabela =
+          document.getElementById(
+            "tabelaTermosPT"
+          );
+
+        tabela.innerHTML = "";
+
+        const lista =
+          data.termos_portugues || [];
+
+        if (lista.length === 0) {
+          tabela.innerHTML = `
+            <tr>
+              <td
+                colspan="3"
+                class="text-center text-muted"
+              >
+                Nenhum termo cadastrado.
+              </td>
+            </tr>
+          `;
+
+          return;
+        }
+
+        lista.forEach(termo => {
+          const tr =
+            document.createElement(
+              "tr"
+            );
+
+          tr.innerHTML = `
+            <td>
+              #${escaparHtml(
+                termo.id_termo_pt
+              )}
+            </td>
+
+            <td>
+              ${escaparHtml(
+                termo.texto_portugues
+              )}
+            </td>
+
+            <td class="table-actions">
+
+              <button
+                class="btn btn-sm btn-outline-warning border-0"
+                title="Editar termo"
+              >
+                <i class="bi bi-pencil"></i>
+              </button>
+
+              <button
+                class="btn btn-sm btn-outline-danger border-0"
+                title="Deletar termo"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+
+            </td>
+          `;
+
+          const botoes =
+            tr.querySelectorAll(
+              "button"
+            );
+
+          botoes[0].addEventListener(
+            "click",
+            () => abrirModalEditPT(
+              termo.id_termo_pt,
+              termo.texto_portugues
+            )
+          );
+
+          botoes[1].addEventListener(
+            "click",
+            () => deletarTermoPT(
+              termo.id_termo_pt
+            )
+          );
+
+          tabela.appendChild(tr);
+        });
+
+      } catch (error) {
+        console.error(
+          "Erro termos PT:",
+          error
+        );
+      }
+    }
+
+
+    async function criarTermoPT(event) {
+      event.preventDefault();
+
+      const texto =
+        document
+          .getElementById(
+            "inputAddTermoPT"
+          )
+          .value
+          .trim();
+
+      try {
+        const response = await apiFetch(
+          "/admin/termos-portugues",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              texto_portugues: texto
+            })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao criar termo."
+          );
+        }
+
+        document
+          .getElementById(
+            "inputAddTermoPT"
+          )
+          .value = "";
+
+        carregarTermosPT();
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    function abrirModalEditPT(
+      id,
+      texto
+    ) {
+      document
+        .getElementById(
+          "editTermoPTId"
+        )
+        .value = id;
+
+      document
+        .getElementById(
+          "editTermoPTTexto"
+        )
+        .value = texto;
+
+      modalEditPT.show();
+    }
+
+
+    async function atualizarTermoPT(event) {
+      event.preventDefault();
+
+      const id =
+        document
+          .getElementById(
+            "editTermoPTId"
+          )
+          .value;
+
+      const texto =
+        document
+          .getElementById(
+            "editTermoPTTexto"
+          )
+          .value
+          .trim();
+
+      try {
+        const response = await apiFetch(
+          `/admin/termos-portugues/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              texto_portugues: texto
+            })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao atualizar termo."
+          );
+        }
+
+        modalEditPT.hide();
+
+        carregarTermosPT();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    async function deletarTermoPT(id) {
+      if (!confirm(
+        "Remover este termo do banco?"
+      )) {
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/admin/termos-portugues/${id}`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Termo em uso numa tradução."
+          );
+        }
+
+        carregarTermosPT();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    /*
+     * =====================================================
+     * TERMOS EM AKWẼ
+     * =====================================================
+     */
+
+    async function carregarTermosAkwe() {
+      try {
+        const response = await apiFetch(
+          "/termos-akwe"
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao carregar termos Akwẽ."
+          );
+        }
+
+        const tabela =
+          document.getElementById(
+            "tabelaTermosAkwe"
+          );
+
+        tabela.innerHTML = "";
+
+        const lista =
+          data.termos_akwe || [];
+
+        if (lista.length === 0) {
+          tabela.innerHTML = `
+            <tr>
+              <td
+                colspan="4"
+                class="text-center text-muted"
+              >
+                Nenhum termo cadastrado.
+              </td>
+            </tr>
+          `;
+
+          return;
+        }
+
+        lista.forEach(termo => {
+          const tr =
+            document.createElement(
+              "tr"
+            );
+
+          tr.innerHTML = `
+            <td>
+              #${escaparHtml(
+                termo.id_termo_akwe
+              )}
+            </td>
+
+            <td>
+              ${escaparHtml(
+                termo.texto_akwe
+              )}
+            </td>
+
+            <td>
+              <code>
+                ${escaparHtml(
+                  termo.raiz_gramatical || "-"
+                )}
+              </code>
+            </td>
+
+            <td class="table-actions">
+
+              <button
+                class="btn btn-sm btn-outline-warning border-0"
+                title="Editar termo"
+              >
+                <i class="bi bi-pencil"></i>
+              </button>
+
+              <button
+                class="btn btn-sm btn-outline-danger border-0"
+                title="Deletar termo"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+
+            </td>
+          `;
+
+          const botoes =
+            tr.querySelectorAll(
+              "button"
+            );
+
+          botoes[0].addEventListener(
+            "click",
+            () => abrirModalEditAkwe(
+              termo.id_termo_akwe,
+              termo.texto_akwe,
+              termo.raiz_gramatical || ""
+            )
+          );
+
+          botoes[1].addEventListener(
+            "click",
+            () => deletarTermoAkwe(
+              termo.id_termo_akwe
+            )
+          );
+
+          tabela.appendChild(tr);
+        });
+
+      } catch (error) {
+        console.error(
+          "Erro termos Akwẽ:",
+          error
+        );
+      }
+    }
+
+
+    async function criarTermoAkwe(event) {
+      event.preventDefault();
+
+      const texto =
+        document
+          .getElementById(
+            "inputAddTermoAkwe"
+          )
+          .value
+          .trim();
+
+      const raiz =
+        document
+          .getElementById(
+            "inputAddRaizAkwe"
+          )
+          .value
+          .trim() || null;
+
+      try {
+        const response = await apiFetch(
+          "/admin/termos-akwe",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              texto_akwe: texto,
+              raiz_gramatical: raiz
+            })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao criar termo Akwẽ."
+          );
+        }
+
+        document
+          .getElementById(
+            "inputAddTermoAkwe"
+          )
+          .value = "";
+
+        document
+          .getElementById(
+            "inputAddRaizAkwe"
+          )
+          .value = "";
+
+        carregarTermosAkwe();
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    function abrirModalEditAkwe(
+      id,
+      texto,
+      raiz
+    ) {
+      document
+        .getElementById(
+          "editTermoAkweId"
+        )
+        .value = id;
+
+      document
+        .getElementById(
+          "editTermoAkweTexto"
+        )
+        .value = texto;
+
+      document
+        .getElementById(
+          "editTermoAkweRaiz"
+        )
+        .value = raiz;
+
+      modalEditAkwe.show();
+    }
+
+
+    async function atualizarTermoAkwe(event) {
+      event.preventDefault();
+
+      const id =
+        document
+          .getElementById(
+            "editTermoAkweId"
+          )
+          .value;
+
+      const texto =
+        document
+          .getElementById(
+            "editTermoAkweTexto"
+          )
+          .value
+          .trim();
+
+      const raiz =
+        document
+          .getElementById(
+            "editTermoAkweRaiz"
+          )
+          .value
+          .trim() || null;
+
+      try {
+        const response = await apiFetch(
+          `/admin/termos-akwe/${id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              texto_akwe: texto,
+              raiz_gramatical: raiz
+            })
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Erro ao atualizar termo Akwẽ."
+          );
+        }
+
+        modalEditAkwe.hide();
+
+        carregarTermosAkwe();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+
+
+    async function deletarTermoAkwe(id) {
+      if (!confirm(
+        "Remover este termo em Akwẽ?"
+      )) {
+        return;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/admin/termos-akwe/${id}`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const data =
+          await respostaJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            data.detail ||
+            "Termo em uso numa tradução."
+          );
+        }
+
+        carregarTermosAkwe();
+        carregarTraducoes(paginaAtual);
+
+      } catch (error) {
+        mostrarErro(error.message);
+      }
+    }
+  </script>
+
+</body>
+</html>
