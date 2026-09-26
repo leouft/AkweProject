@@ -392,28 +392,130 @@ def read_estatisticas():
     return {"estatisticas": executar_query(sql, fetch_all=True)}
 
 @app.get("/api/admin/traducoes")
-def listar_traducoes_admin():
-    sql = """
-        SELECT 
+def listar_traducoes_admin(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=100), busca: Optional[str] = Query(None)):
+    """
+    Lista traduções paginadas para o painel administrativo.
+
+    page:
+        Número da página, iniciando em 1.
+
+    limit:
+        Quantidade máxima de registros por página.
+        O limite máximo permitido é 100.
+
+    busca:
+        Pesquisa opcional por termo português, Akwẽ ou raiz gramatical.
+    """
+
+    offset = (page - 1) * limit
+
+    filtros = []
+    params = []
+
+    if busca and busca.strip():
+        termo_busca = f"%{busca.strip().lower()}%"
+
+        filtros.append(
+            """
+            (
+                LOWER(tp.texto_portugues) LIKE ?
+                OR LOWER(ta.texto_akwe) LIKE ?
+                OR LOWER(COALESCE(ta.raiz_gramatical, '')) LIKE ?
+            )
+            """
+        )
+
+        params.extend([
+            termo_busca,
+            termo_busca,
+            termo_busca,
+        ])
+
+    where_sql = ""
+
+    if filtros:
+        where_sql = "WHERE " + " AND ".join(filtros)
+
+    sql_total = f"""
+        SELECT COUNT(*) AS total
+        FROM organograma.termos_traducoes t
+        INNER JOIN organograma.termos_portugues tp
+            ON t.id_termo_pt = tp.id_termo_pt
+        INNER JOIN organograma.termos_akwe ta
+            ON t.id_termo_akwe = ta.id_termo_akwe
+        {where_sql};
+    """
+
+    resultado_total = executar_query(
+        sql_total,
+        tuple(params),
+        fetch_all=False
+    )
+
+    total = resultado_total["total"] if resultado_total else 0
+
+    sql = f"""
+        SELECT
             t.id_traducao,
             tp.texto_portugues,
             ta.texto_akwe,
             ta.raiz_gramatical,
             c.nome AS categoria,
             t.explicacao_contexto,
-            STRING_AGG(DISTINCT tg.nome, ', ') AS tags,
-            STRING_AGG(DISTINCT m.url_arquivo, ', ') AS midias
+
+            (
+                SELECT STRING_AGG(DISTINCT tg.nome, ', ')
+                FROM organograma.termo_tags tt
+                INNER JOIN organograma.tags tg
+                    ON tt.id_tag = tg.id_tag
+                WHERE tt.id_traducao = t.id_traducao
+            ) AS tags,
+
+            (
+                SELECT STRING_AGG(DISTINCT m.url_arquivo, ', ')
+                FROM organograma.midias m
+                WHERE m.id_traducao = t.id_traducao
+            ) AS midias
+
         FROM organograma.termos_traducoes t
-        INNER JOIN organograma.termos_portugues tp ON t.id_termo_pt = tp.id_termo_pt
-        INNER JOIN organograma.termos_akwe ta ON t.id_termo_akwe = ta.id_termo_akwe
-        INNER JOIN organograma.categorias c ON t.id_categoria = c.id_categoria
-        LEFT JOIN organograma.termo_tags tt ON t.id_traducao = tt.id_traducao
-        LEFT JOIN organograma.tags tg ON tt.id_tag = tg.id_tag
-        LEFT JOIN organograma.midias m ON t.id_traducao = m.id_traducao
-        GROUP BY t.id_traducao, tp.texto_portugues, ta.texto_akwe, ta.raiz_gramatical, c.nome, t.explicacao_contexto
-        ORDER BY t.id_traducao DESC;
+
+        INNER JOIN organograma.termos_portugues tp
+            ON t.id_termo_pt = tp.id_termo_pt
+
+        INNER JOIN organograma.termos_akwe ta
+            ON t.id_termo_akwe = ta.id_termo_akwe
+
+        INNER JOIN organograma.categorias c
+            ON t.id_categoria = c.id_categoria
+
+        {where_sql}
+
+        ORDER BY t.id_traducao ASC
+        LIMIT ?
+        OFFSET ?;
     """
-    return {"termos": executar_query(sql)}
+
+    params_dados = params + [limit, offset]
+
+    traducoes = executar_query(
+        sql,
+        tuple(params_dados),
+        fetch_all=True
+    )
+
+    total_paginas = (total + limit - 1) // limit if total else 0
+
+    return {
+        "termos": traducoes,
+        "paginacao": {
+            "pagina_atual": page,
+            "por_pagina": limit,
+            "total_registros": total,
+            "total_paginas": total_paginas,
+            "tem_anterior": page > 1,
+            "tem_proxima": page < total_paginas,
+        }
+    }
 
 @app.get("/api/traducoes")
 def read_traducoes():
