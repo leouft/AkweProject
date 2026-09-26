@@ -302,27 +302,20 @@ def executar_query(
         cursor = conn.cursor()
         cursor.execute(query, params)
 
-        resultado = True
-
+        resultado = None
+        
         if cursor.description:
-            colunas = [
-                coluna[0]
-                for coluna in cursor.description
-            ]
-
+            colunas = [coluna[0] for coluna in cursor.description]
             if fetch_all:
                 linhas = cursor.fetchall()
-                resultado = [
-                    dict(zip(colunas, linha))
-                    for linha in linhas
-                ]
+                resultado = [dict(zip(colunas, linha)) for linha in linhas]
             else:
                 linha = cursor.fetchone()
-                resultado = (
-                    dict(zip(colunas, linha))
-                    if linha
-                    else None
-                )
+                resultado = dict(zip(colunas, linha)) if linha else None
+
+        else:
+            resultado = cursor.rowcount
+        
 
         conn.commit()
         return resultado
