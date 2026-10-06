@@ -33,7 +33,7 @@ from threading import Lock
 
 LOGIN_MAX_TENTATIVAS = 5
 LOGIN_JANELA_SEGUNDOS = 300       # 5 minutos
-LOGIN_BLOQUEIO_SEGUNDOS = 3600     # 15 minutos
+LOGIN_BLOQUEIO_SEGUNDOS = 3600     # 1 hora
 
 _login_lock = Lock()
 
