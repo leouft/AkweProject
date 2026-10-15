@@ -1558,10 +1558,7 @@ def delete_estatistica(id_estatistica: int):
 def registrar_consulta(id_traducao: int):
     resultado = executar_query(
         """
-        UPDATE organograma.estatisticas_termos
-        SET quantidade_consultas = quantidade_consultas + 1
-        WHERE id_traducao = ?
-        RETURNING id_estatistica;
+        SELECT organograma.registrar_consulta(?)
         """,
         (id_traducao,),
         fetch_all=False,
