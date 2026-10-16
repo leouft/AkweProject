@@ -1,0 +1,46 @@
+TRUNCATE TABLE organograma.tags RESTART IDENTITY CASCADE;
+
+INSERT INTO organograma.tags(id_tag, nome)
+VALUES
+(1, 'preposição'),
+(2, 'fruta'),
+(3, 'verbo'),
+(4, 'advérbio'),
+(5, 'substantivo'),
+(6, 'inseto'),
+(7, 'vegetal'),
+(8, 'adjetivo'),
+(9, 'expressão verbal'),
+(10, 'verbo reflexivo'),
+(11, 'tempero'),
+(12, 'peixe'),
+(13, 'ave'),
+(14, 'agente'),
+(15, 'expressão'),
+(16, 'pronome'),
+(17, 'flexão de gênero'),
+(18, 'fibra'),
+(19, 'planta'),
+(20, 'pronome indefinido'),
+(21, 'pronome indefinido plural'),
+(22, 'árvore'),
+(23, 'mamífero'),
+(24, 'pronome demonstrativo'),
+(25, 'aracnídeo'),
+(26, 'parentesco'),
+(27, 'cor'),
+(28, 'palmeira'),
+(29, 'interjeição'),
+(30, 'numeral'),
+(31, 'réptil'),
+(32, 'crustáceo'),
+(33, 'molusco'),
+(34, 'conjunção'),
+(35, 'invertebrado'),
+(36, 'pronome possessivo'),
+(37, 'etnografia'),
+(38, 'ritual'),
+(39, 'anfíbio');
+
+SELECT * FROM organograma.tags
+ORDER BY id_tag ASC
