@@ -693,6 +693,24 @@ def read_termos_pt():
         ),
     }
 
+@app.get("/api/sync")
+def sincronizar_palavras():
+    sql = """
+        SELECT 
+            ta.texto_akwe AS akwe,
+            tp.texto_portugues AS portugues,
+            t.explicacao_contexto AS significado
+        FROM organograma.termos_traducoes t
+        INNER JOIN organograma.termos_portugues tp
+            ON t.id_termo_pt = tp.id_termo_pt
+        INNER JOIN organograma.termos_akwe ta
+            ON t.id_termo_akwe = ta.id_termo_akwe
+        ORDER BY t.id_traducao ASC;
+    """
+    
+    resultados = executar_query(sql, fetch_all=True)
+    return resultados
+
 #endregion
 
 # ============================================================

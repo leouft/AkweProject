@@ -1,0 +1,1 @@
+Na pasta lib tem o homepage e o main.dart --- é ali que tudo começa. O main dart é o primeiro a ser rodado pra aplicação acontecer, e o homepage é a tela inicial do app, que já tá importada no main.dart
