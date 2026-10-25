@@ -99,7 +99,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 onChanged: (valor) {
-                  // Dica futura: aqui você pode filtrar a lista em tempo real se quiser!
+                  setState(() {
+                    _futurePalavras = _dbHelper.searchPalavras(valor);
+                  });
                 },
               ),
             ),

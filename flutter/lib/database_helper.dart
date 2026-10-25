@@ -50,7 +50,10 @@ class DatabaseHelper {
         List<dynamic> listaDePalavras = json.decode(response.body);
         final db = await database;
 
-        // Limpa ou insere os dados novos no SQLite local
+        // Limpa todo o banco de dados
+        await db.delete('palavras');
+
+        // Insere o banco 100% atualizado da API
         for (var item in listaDePalavras) {
           await db.insert(
             'palavras',
@@ -74,4 +77,21 @@ class DatabaseHelper {
     final db = await database;
     return await db.query('palavras');
   }
+
+  // Método para buscar uma palavra específica
+  Future<List<Map<String, dynamic>>> searchPalavras(String query) async {
+    final db = await database;
+    
+    // Se a busca estiver vazia, retorna todas as palavras
+    if (query.trim().isEmpty) {
+      return await getPalavras();
+    }
+
+    // Faz a consulta no SQLite filtrando com LIKE
+    return await db.query(
+      'palavras',
+      where: 'akwe LIKE ? OR portugues LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+    );
+  } 
 }
