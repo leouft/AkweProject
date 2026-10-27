@@ -18,6 +18,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pwdlib import PasswordHash
 from jwt.exceptions import InvalidTokenError
@@ -697,19 +698,31 @@ def read_termos_pt():
 def sincronizar_palavras():
     sql = """
         SELECT 
+            t.id_traducao,
             ta.texto_akwe AS akwe,
             tp.texto_portugues AS portugues,
-            t.explicacao_contexto AS significado
+            t.explicacao_contexto AS significado,
+            MAX(CASE WHEN m.tipo = 'audio' THEN m.url_arquivo END) AS audio_url,
+            MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url
         FROM organograma.termos_traducoes t
         INNER JOIN organograma.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
         INNER JOIN organograma.termos_akwe ta
             ON t.id_termo_akwe = ta.id_termo_akwe
+        LEFT JOIN organograma.midias m
+            ON t.id_traducao = m.id_traducao
+        GROUP BY 
+            t.id_traducao,
+            ta.texto_akwe,
+            tp.texto_portugues,
+            t.explicacao_contexto
         ORDER BY t.id_traducao ASC;
     """
     
     resultados = executar_query(sql, fetch_all=True)
     return resultados
+
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 #endregion
 

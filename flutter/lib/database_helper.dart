@@ -2,6 +2,9 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'config.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -22,7 +25,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 3,
+      version: 8,
       onCreate: _onCreate,
     );
   }
@@ -32,9 +35,14 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE palavras (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_traducao INTEGER,
         akwe TEXT,
         portugues TEXT,
-        significado TEXT
+        significado TEXT,
+        audio_url TEXT,
+        media_url TEXT,
+        local_audio_path TEXT,
+        local_media_path TEXT
       )
     ''');
   }
@@ -42,25 +50,64 @@ class DatabaseHelper {
   Future<void> sincronizarComApi() async {
     try {
       // endereço da api que sincroniza
-      final url = Uri.parse('http://192.168.5.107:8000/api/sync'); 
+      final url = Uri.parse('${Config.baseUrl}/api/sync'); 
       
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         List<dynamic> listaDePalavras = json.decode(response.body);
         final db = await database;
+        final appDir = await getApplicationDocumentsDirectory();
 
         // Limpa todo o banco de dados
         await db.delete('palavras');
 
         // Insere o banco 100% atualizado da API
         for (var item in listaDePalavras) {
+          String? localAudioPath;
+          String? localMediaPath;
+
+          if (item['media_url'] != null && item['media_url'].toString().isNotEmpty) {
+            try {
+              final mediaUri = Uri.parse('${Config.baseUrl}${item['media_url']}');
+              final mediaResponse = await http.get(mediaUri);
+              if (mediaResponse.statusCode == 200) {
+                final fileName = basename(mediaUri.path);
+                final localFile = File('${appDir.path}/$fileName');
+                await localFile.writeAsBytes(mediaResponse.bodyBytes);
+                localMediaPath = localFile.path;
+              }
+            } catch (e) {
+              print("Erro ao baixar mídia: $e");
+            }
+          }
+
+          if (item['audio_url'] != null && item['audio_url'].toString().isNotEmpty) {
+            try {
+              final audioUri = Uri.parse('${Config.baseUrl}${item['audio_url']}');
+              final audioResponse = await http.get(audioUri);
+              if (audioResponse.statusCode == 200) {
+                final fileName = basename(audioUri.path);
+                final localFile = File('${appDir.path}/$fileName');
+                await localFile.writeAsBytes(audioResponse.bodyBytes);
+                localAudioPath = localFile.path;
+              }
+            } catch (e) {
+              print("Erro ao baixar áduio: $e");
+            }
+          }
+
           await db.insert(
             'palavras',
             {
-              'akwe': item['akwe'],          // Coluna conforme sua API retorna
+              'id_traducao': item['id_traducao'],
+              'akwe': item['akwe'],          
               'portugues': item['portugues'],
               'significado': item['significado'],
+              'audio_url': item['audio_url'],
+              'media_url': item['media_url'],
+              'local_audio_path': localAudioPath,
+              'local_media_path': localMediaPath,
             },
             conflictAlgorithm: ConflictAlgorithm.replace, // Substitui se já existir ID igual
           );

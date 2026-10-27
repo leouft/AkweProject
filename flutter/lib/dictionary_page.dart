@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'database_helper.dart';
+import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
 
 class HomePage extends StatefulWidget {
   final String title;
@@ -11,6 +13,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
+  final _audioPlayer = AudioPlayer();
+
   // Controle de qual item está expandido (por índice)
   int? expandedIndex = null;
 
@@ -177,18 +182,28 @@ class _HomePageState extends State<HomePage> {
                                       ),
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.primary,
-                                      shape: BoxShape.circle,
+                                  if (item['audio_url'] != null && item['audio_url'].toString().isNotEmpty)
+                                    GestureDetector(
+                                      onTap: () async {
+                                        try {
+                                          await _audioPlayer.play(DeviceFileSource(item['local_audio_path']));
+                                        } catch (e) {
+                                          print("Erro ao reproduzir áudio: $e");
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.volume_up_rounded,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                      ),
                                     ),
-                                    child: const Icon(
-                                      Icons.volume_up_rounded,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
                                 ],
                               ),
                               const SizedBox(height: 2),
@@ -208,25 +223,31 @@ class _HomePageState extends State<HomePage> {
                                     color: AppTheme.primary.withOpacity(0.8),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                Container(
-                                  height: 120,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.black38,
-                                      width: 1.2,
+                                if (item['local_media_path'] != null && item['local_media_path'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.black38, width: 1.2),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        File(item['local_media_path']),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const Center(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(20.0),
+                                              child: Icon(Icons.broken_image, size: 36, color: Colors.black45),
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.image_outlined,
-                                      size: 36,
-                                      color: Colors.black45,
-                                    ),
-                                  ),
-                                ),
+                                ],
                               ],
                               const SizedBox(height: 6),
                               Align(
