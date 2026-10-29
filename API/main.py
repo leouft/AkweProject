@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 import jwt
-import pyodbc
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from dotenv import load_dotenv
 from fastapi import (
@@ -45,15 +46,6 @@ def obter_identificador_cliente(
     request: Request,
     username: str,
 ) -> str:
-    """
-    Usa o IP observado pelo FastAPI junto com o username.
-
-    Importante:
-    atrás de proxies, request.client.host pode representar
-    o proxy. Não confie cegamente em X-Forwarded-For sem
-    configurar explicitamente um proxy confiável.
-    """
-
     ip = (
         request.client.host
         if request.client
@@ -136,8 +128,8 @@ BASE_DIR = Path(__file__).resolve().parent
 INDEX_FILE = BASE_DIR / "index.html"
 
 DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "postgres")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
@@ -164,18 +156,6 @@ if len(JWT_SECRET_KEY.encode("utf-8")) < 32:
     raise RuntimeError(
         "JWT_SECRET_KEY deve possuir pelo menos 32 bytes."
     )
-
-
-CONEXAO_ODBC = (
-    "DRIVER={PostgreSQL Unicode};"
-    f"SERVER={DB_HOST};"
-    f"PORT={DB_PORT};"
-    f"DATABASE={DB_NAME};"
-    f"UID={DB_USER};"
-    f"PWD={DB_PASSWORD};"
-    "SSLMode=require;"
-)
-
 
 password_hash = PasswordHash.recommended()
 security = HTTPBearer(auto_error=False)
@@ -290,9 +270,19 @@ class EstatisticaUpdateSchema(BaseModel):
 #endregion
 
 # ============================================================
-# BANCO DE DADOS
+# BANCO DE DADOS (CONEXÃO PSYCOPG2)
 # ============================================================
 #region
+
+def criar_conexao():
+    return psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        sslmode="require"
+    )
 
 def executar_query(
     query: str,
@@ -303,25 +293,25 @@ def executar_query(
     cursor = None
 
     try:
-        conn = pyodbc.connect(CONEXAO_ODBC)
-        cursor = conn.cursor()
-        cursor.execute(query, params)
+        conn = criar_conexao()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Converte o '?' do pyodbc para '%s' do psycopg2 automaticamente
+        query_convertida = query.replace("?", "%s")
+        cursor.execute(query_convertida, params)
 
         resultado = None
         
         if cursor.description:
-            colunas = [coluna[0] for coluna in cursor.description]
             if fetch_all:
                 linhas = cursor.fetchall()
-                resultado = [dict(zip(colunas, linha)) for linha in linhas]
+                resultado = [dict(linha) for linha in linhas]
             else:
                 linha = cursor.fetchone()
-                resultado = dict(zip(colunas, linha)) if linha else None
-
+                resultado = dict(linha) if linha else None
         else:
             resultado = cursor.rowcount
         
-
         conn.commit()
         return resultado
 
@@ -552,7 +542,6 @@ def login(
     if not usuario or not usuario["ativo"] or not senha_valida:
         registrar_falha_login(chave)
 
-        # Mensagem genérica: não revela se o usuário existe.
         raise HTTPException(
             status_code=401,
             detail="Usuário ou senha inválidos.",
@@ -726,13 +715,15 @@ def sincronizar_palavras():
     resultados = executar_query(sql, fetch_all=True)
     return resultados
 
-app.mount("/media", StaticFiles(directory="media"), name="media")
+# Garante que a pasta media existe antes de montar, evitando o erro no Render
+media_dir = BASE_DIR / "media"
+media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
 
 #endregion
 
 # ============================================================
 # ROUTER ADMINISTRATIVO
-# Todas as rotas deste router exigem perfil admin.
 # ============================================================
 #region
 
@@ -905,14 +896,14 @@ def create_traducao(dados: TraducaoCreateSchema):
     cursor = None
 
     try:
-        conn = pyodbc.connect(CONEXAO_ODBC)
+        conn = criar_conexao()
         cursor = conn.cursor()
 
         cursor.execute(
             """
             SELECT id_termo_pt
             FROM public.termos_portugues
-            WHERE texto_portugues = ?;
+            WHERE texto_portugues = %s;
             """,
             (dados.texto_portugues,),
         )
@@ -926,7 +917,7 @@ def create_traducao(dados: TraducaoCreateSchema):
                 """
                 INSERT INTO public.termos_portugues
                     (texto_portugues)
-                VALUES (?)
+                VALUES (%s)
                 RETURNING id_termo_pt;
                 """,
                 (dados.texto_portugues,),
@@ -938,7 +929,7 @@ def create_traducao(dados: TraducaoCreateSchema):
             """
             SELECT id_termo_akwe
             FROM public.termos_akwe
-            WHERE texto_akwe = ?;
+            WHERE texto_akwe = %s;
             """,
             (dados.texto_akwe,),
         )
@@ -952,8 +943,8 @@ def create_traducao(dados: TraducaoCreateSchema):
                 cursor.execute(
                     """
                     UPDATE public.termos_akwe
-                    SET raiz_gramatical = ?
-                    WHERE id_termo_akwe = ?;
+                    SET raiz_gramatical = %s
+                    WHERE id_termo_akwe = %s;
                     """,
                     (
                         dados.raiz_gramatical,
@@ -965,7 +956,7 @@ def create_traducao(dados: TraducaoCreateSchema):
                 """
                 INSERT INTO public.termos_akwe
                     (texto_akwe, raiz_gramatical)
-                VALUES (?, ?)
+                VALUES (%s, %s)
                 RETURNING id_termo_akwe;
                 """,
                 (
@@ -985,7 +976,7 @@ def create_traducao(dados: TraducaoCreateSchema):
                     id_categoria,
                     explicacao_contexto
                 )
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
             RETURNING id_traducao;
             """,
             (
@@ -1007,7 +998,7 @@ def create_traducao(dados: TraducaoCreateSchema):
                     reproducoes_audio,
                     tempo_retencao_segundos
                 )
-            VALUES (?, 0, 0, 0);
+            VALUES (%s, 0, 0, 0);
             """,
             (id_traducao,),
         )
