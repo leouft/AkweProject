@@ -1,0 +1,1 @@
+Essa pasta armazena as mídias
