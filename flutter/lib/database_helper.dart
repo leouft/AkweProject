@@ -69,7 +69,7 @@ class DatabaseHelper {
 
           if (item['media_url'] != null && item['media_url'].toString().isNotEmpty) {
             try {
-              final mediaUri = Uri.parse('${Config.baseUrl}${item['media_url']}');
+              final mediaUri = Uri.parse(item['media_url']);
               final mediaResponse = await http.get(mediaUri);
               if (mediaResponse.statusCode == 200) {
                 final fileName = basename(mediaUri.path);
@@ -78,13 +78,13 @@ class DatabaseHelper {
                 localMediaPath = localFile.path;
               }
             } catch (e) {
-              print("Erro ao baixar mídia: $e");
+              print("Erro ao baixar mídia do Supabase: $e");
             }
           }
 
           if (item['audio_url'] != null && item['audio_url'].toString().isNotEmpty) {
             try {
-              final audioUri = Uri.parse('${Config.baseUrl}${item['audio_url']}');
+              final audioUri = Uri.parse(item['audio_url']);
               final audioResponse = await http.get(audioUri);
               if (audioResponse.statusCode == 200) {
                 final fileName = basename(audioUri.path);
@@ -93,7 +93,7 @@ class DatabaseHelper {
                 localAudioPath = localFile.path;
               }
             } catch (e) {
-              print("Erro ao baixar áduio: $e");
+              print("Erro ao baixar áudio do Supabase: $e");
             }
           }
 

@@ -715,11 +715,6 @@ def sincronizar_palavras():
     resultados = executar_query(sql, fetch_all=True)
     return resultados
 
-# Garante que a pasta media existe antes de montar, evitando o erro no Render
-media_dir = BASE_DIR / "media"
-media_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
-
 #endregion
 
 # ============================================================
