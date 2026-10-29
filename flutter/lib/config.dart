@@ -1,3 +1,3 @@
 class Config {
-  static const String baseUrl = "http://192.168.5.105:8000";
+  static const String baseUrl = "https://akweproject.onrender.com/";
 }
