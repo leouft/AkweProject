@@ -135,8 +135,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 INDEX_FILE = BASE_DIR / "index.html"
 
-DATABASE_LOGIN = os.getenv("DATABASE_LOGIN")
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -148,11 +151,11 @@ try:
 except ValueError:
     ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
-if not DATABASE_LOGIN:
-    raise RuntimeError("DATABASE_LOGIN não foi configurado no .env.")
+if not DB_USER:
+    raise RuntimeError("DB_USER não foi configurado no .env.")
 
-if not DATABASE_PASSWORD:
-    raise RuntimeError("DATABASE_PASSWORD não foi configurado no .env.")
+if not DB_PASSWORD:
+    raise RuntimeError("DB_PASSWORD não foi configurado no .env.")
 
 if not JWT_SECRET_KEY:
     raise RuntimeError("JWT_SECRET_KEY não foi configurado no .env.")
@@ -165,11 +168,12 @@ if len(JWT_SECRET_KEY.encode("utf-8")) < 32:
 
 CONEXAO_ODBC = (
     "DRIVER={PostgreSQL Unicode};"
-    "SERVER=localhost;"
-    "PORT=5432;"
-    "DATABASE=db_akwe;"
-    f"UID={DATABASE_LOGIN};"
-    f"PWD={DATABASE_PASSWORD};"
+    f"SERVER={DB_HOST};"
+    f"PORT={DB_PORT};"
+    f"DATABASE={DB_NAME};"
+    f"UID={DB_USER};"
+    f"PWD={DB_PASSWORD};"
+    "SSLMode=require;"
 )
 
 
@@ -379,7 +383,7 @@ def buscar_usuario_por_username(username: str):
             perfil,
             ativo,
             criado_em
-        FROM organograma.usuarios
+        FROM public.usuarios
         WHERE username = ?;
     """
 
@@ -399,7 +403,7 @@ def buscar_usuario_por_id(id_usuario: int):
             perfil,
             ativo,
             criado_em
-        FROM organograma.usuarios
+        FROM public.usuarios
         WHERE id_usuario = ?;
     """
 
@@ -595,12 +599,12 @@ def buscar_termo(
             ta.raiz_gramatical,
             c.nome AS categoria,
             t.explicacao_contexto
-        FROM organograma.termos_traducoes t
-        INNER JOIN organograma.termos_portugues tp
+        FROM public.termos_traducoes t
+        INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
-        INNER JOIN organograma.termos_akwe ta
+        INNER JOIN public.termos_akwe ta
             ON t.id_termo_akwe = ta.id_termo_akwe
-        INNER JOIN organograma.categorias c
+        INNER JOIN public.categorias c
             ON t.id_categoria = c.id_categoria
         WHERE LOWER(tp.texto_portugues) LIKE ?
            OR LOWER(ta.texto_akwe) LIKE ?
@@ -624,7 +628,7 @@ def buscar_termo(
 def read_traducoes():
     sql = """
         SELECT *
-        FROM organograma.termos_traducoes
+        FROM public.termos_traducoes
         ORDER BY id_traducao ASC;
     """
 
@@ -637,7 +641,7 @@ def read_traducoes():
 def read_categorias():
     return {
         "categorias": executar_query(
-            "SELECT * FROM organograma.categorias ORDER BY id_categoria;"
+            "SELECT * FROM public.categorias ORDER BY id_categoria;"
         ),
     }
 
@@ -646,7 +650,7 @@ def read_categorias():
 def read_midias():
     return {
         "midias": executar_query(
-            "SELECT * FROM organograma.midias ORDER BY id_midia ASC;"
+            "SELECT * FROM public.midias ORDER BY id_midia ASC;"
         ),
     }
 
@@ -655,7 +659,7 @@ def read_midias():
 def read_tags():
     return {
         "tags": executar_query(
-            "SELECT * FROM organograma.tags ORDER BY nome;"
+            "SELECT * FROM public.tags ORDER BY nome;"
         ),
     }
 
@@ -664,7 +668,7 @@ def read_tags():
 def read_termotags():
     return {
         "termo_tags": executar_query(
-            "SELECT * FROM organograma.termo_tags;"
+            "SELECT * FROM public.termo_tags;"
         ),
     }
 
@@ -675,7 +679,7 @@ def read_termos_akwe():
         "termos_akwe": executar_query(
             """
             SELECT *
-            FROM organograma.termos_akwe
+            FROM public.termos_akwe
             ORDER BY texto_akwe;
             """
         ),
@@ -688,7 +692,7 @@ def read_termos_pt():
         "termos_portugues": executar_query(
             """
             SELECT *
-            FROM organograma.termos_portugues
+            FROM public.termos_portugues
             ORDER BY texto_portugues;
             """
         ),
@@ -704,12 +708,12 @@ def sincronizar_palavras():
             t.explicacao_contexto AS significado,
             MAX(CASE WHEN m.tipo = 'audio' THEN m.url_arquivo END) AS audio_url,
             MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url
-        FROM organograma.termos_traducoes t
-        INNER JOIN organograma.termos_portugues tp
+        FROM public.termos_traducoes t
+        INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
-        INNER JOIN organograma.termos_akwe ta
+        INNER JOIN public.termos_akwe ta
             ON t.id_termo_akwe = ta.id_termo_akwe
-        LEFT JOIN organograma.midias m
+        LEFT JOIN public.midias m
             ON t.id_traducao = m.id_traducao
         GROUP BY 
             t.id_traducao,
@@ -749,8 +753,8 @@ def overview_estatisticas():
                 AS total_audios_ouvidos,
             ROUND(AVG(e.nivel_clareza), 2)
                 AS media_nivel_clareza
-        FROM organograma.termos_traducoes t
-        LEFT JOIN organograma.estatisticas_termos e
+        FROM public.termos_traducoes t
+        LEFT JOIN public.estatisticas_termos e
             ON t.id_traducao = e.id_traducao;
     """
 
@@ -768,7 +772,7 @@ def read_estatisticas():
         "estatisticas": executar_query(
             """
             SELECT *
-            FROM organograma.estatisticas_termos
+            FROM public.estatisticas_termos
             ORDER BY id_estatistica ASC;
             """
         ),
@@ -812,10 +816,10 @@ def listar_traducoes_admin(
 
     count_sql = f"""
         SELECT COUNT(DISTINCT t.id_traducao) AS total
-        FROM organograma.termos_traducoes t
-        INNER JOIN organograma.termos_portugues tp
+        FROM public.termos_traducoes t
+        INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
-        INNER JOIN organograma.termos_akwe ta
+        INNER JOIN public.termos_akwe ta
             ON t.id_termo_akwe = ta.id_termo_akwe
         {where_sql};
     """
@@ -852,18 +856,18 @@ def listar_traducoes_admin(
                 AS tags,
             STRING_AGG(DISTINCT m.url_arquivo, ', ')
                 AS midias
-        FROM organograma.termos_traducoes t
-        INNER JOIN organograma.termos_portugues tp
+        FROM public.termos_traducoes t
+        INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
-        INNER JOIN organograma.termos_akwe ta
+        INNER JOIN public.termos_akwe ta
             ON t.id_termo_akwe = ta.id_termo_akwe
-        INNER JOIN organograma.categorias c
+        INNER JOIN public.categorias c
             ON t.id_categoria = c.id_categoria
-        LEFT JOIN organograma.termo_tags tt
+        LEFT JOIN public.termo_tags tt
             ON t.id_traducao = tt.id_traducao
-        LEFT JOIN organograma.tags tg
+        LEFT JOIN public.tags tg
             ON tt.id_tag = tg.id_tag
-        LEFT JOIN organograma.midias m
+        LEFT JOIN public.midias m
             ON t.id_traducao = m.id_traducao
         {where_sql}
         GROUP BY
@@ -907,7 +911,7 @@ def create_traducao(dados: TraducaoCreateSchema):
         cursor.execute(
             """
             SELECT id_termo_pt
-            FROM organograma.termos_portugues
+            FROM public.termos_portugues
             WHERE texto_portugues = ?;
             """,
             (dados.texto_portugues,),
@@ -920,7 +924,7 @@ def create_traducao(dados: TraducaoCreateSchema):
         else:
             cursor.execute(
                 """
-                INSERT INTO organograma.termos_portugues
+                INSERT INTO public.termos_portugues
                     (texto_portugues)
                 VALUES (?)
                 RETURNING id_termo_pt;
@@ -933,7 +937,7 @@ def create_traducao(dados: TraducaoCreateSchema):
         cursor.execute(
             """
             SELECT id_termo_akwe
-            FROM organograma.termos_akwe
+            FROM public.termos_akwe
             WHERE texto_akwe = ?;
             """,
             (dados.texto_akwe,),
@@ -947,7 +951,7 @@ def create_traducao(dados: TraducaoCreateSchema):
             if dados.raiz_gramatical:
                 cursor.execute(
                     """
-                    UPDATE organograma.termos_akwe
+                    UPDATE public.termos_akwe
                     SET raiz_gramatical = ?
                     WHERE id_termo_akwe = ?;
                     """,
@@ -959,7 +963,7 @@ def create_traducao(dados: TraducaoCreateSchema):
         else:
             cursor.execute(
                 """
-                INSERT INTO organograma.termos_akwe
+                INSERT INTO public.termos_akwe
                     (texto_akwe, raiz_gramatical)
                 VALUES (?, ?)
                 RETURNING id_termo_akwe;
@@ -974,7 +978,7 @@ def create_traducao(dados: TraducaoCreateSchema):
 
         cursor.execute(
             """
-            INSERT INTO organograma.termos_traducoes
+            INSERT INTO public.termos_traducoes
                 (
                     id_termo_pt,
                     id_termo_akwe,
@@ -996,7 +1000,7 @@ def create_traducao(dados: TraducaoCreateSchema):
 
         cursor.execute(
             """
-            INSERT INTO organograma.estatisticas_termos
+            INSERT INTO public.estatisticas_termos
                 (
                     id_traducao,
                     quantidade_consultas,
@@ -1040,7 +1044,7 @@ def update_traducao(
 ):
     resultado = executar_query(
         """
-        UPDATE organograma.termos_traducoes
+        UPDATE public.termos_traducoes
         SET
             id_categoria = ?,
             explicacao_contexto = ?
@@ -1071,7 +1075,7 @@ def update_traducao(
 def delete_traducao(id_traducao: int):
     executar_query(
         """
-        DELETE FROM organograma.estatisticas_termos
+        DELETE FROM public.estatisticas_termos
         WHERE id_traducao = ?;
         """,
         (id_traducao,),
@@ -1079,7 +1083,7 @@ def delete_traducao(id_traducao: int):
 
     executar_query(
         """
-        DELETE FROM organograma.termo_tags
+        DELETE FROM public.termo_tags
         WHERE id_traducao = ?;
         """,
         (id_traducao,),
@@ -1087,7 +1091,7 @@ def delete_traducao(id_traducao: int):
 
     executar_query(
         """
-        DELETE FROM organograma.midias
+        DELETE FROM public.midias
         WHERE id_traducao = ?;
         """,
         (id_traducao,),
@@ -1095,7 +1099,7 @@ def delete_traducao(id_traducao: int):
 
     resultado = executar_query(
         """
-        DELETE FROM organograma.termos_traducoes
+        DELETE FROM public.termos_traducoes
         WHERE id_traducao = ?
         RETURNING id_traducao;
         """,
@@ -1119,7 +1123,7 @@ def delete_traducao(id_traducao: int):
 def create_categoria(dados: CategoriaSchema):
     resultado = executar_query(
         """
-        INSERT INTO organograma.categorias (nome)
+        INSERT INTO public.categorias (nome)
         VALUES (?)
         ON CONFLICT (nome) DO NOTHING
         RETURNING id_categoria;
@@ -1144,7 +1148,7 @@ def create_categoria(dados: CategoriaSchema):
 def delete_categoria(id_categoria: int):
     resultado = executar_query(
         """
-        DELETE FROM organograma.categorias
+        DELETE FROM public.categorias
         WHERE id_categoria = ?
         RETURNING id_categoria;
         """,
@@ -1168,7 +1172,7 @@ def delete_categoria(id_categoria: int):
 def create_tag(dados: TagSchema):
     resultado = executar_query(
         """
-        INSERT INTO organograma.tags (nome)
+        INSERT INTO public.tags (nome)
         VALUES (?)
         ON CONFLICT (nome) DO NOTHING
         RETURNING id_tag;
@@ -1193,7 +1197,7 @@ def create_tag(dados: TagSchema):
 def delete_tag(id_tag: int):
     resultado = executar_query(
         """
-        DELETE FROM organograma.tags
+        DELETE FROM public.tags
         WHERE id_tag = ?
         RETURNING id_tag;
         """,
@@ -1217,7 +1221,7 @@ def delete_tag(id_tag: int):
 def conectar_tag(dados: TermoTagsSchema):
     executar_query(
         """
-        INSERT INTO organograma.termo_tags
+        INSERT INTO public.termo_tags
             (id_traducao, id_tag)
         VALUES (?, ?)
         ON CONFLICT DO NOTHING;
@@ -1241,7 +1245,7 @@ def desconectar_tag(
 ):
     resultado = executar_query(
         """
-        DELETE FROM organograma.termo_tags
+        DELETE FROM public.termo_tags
         WHERE id_traducao = ?
           AND id_tag = ?
         RETURNING id_traducao;
@@ -1269,7 +1273,7 @@ def desconectar_tag(
 def create_midia(dados: MidiaCreateSchema):
     resultado = executar_query(
         """
-        INSERT INTO organograma.midias
+        INSERT INTO public.midias
             (tipo, url_arquivo, id_traducao)
         VALUES (?, ?, ?)
         RETURNING id_midia;
@@ -1295,7 +1299,7 @@ def update_midia(
 ):
     resultado = executar_query(
         """
-        UPDATE organograma.midias
+        UPDATE public.midias
         SET
             tipo = ?,
             url_arquivo = ?,
@@ -1328,7 +1332,7 @@ def update_midia(
 def delete_midia(id_midia: int):
     resultado = executar_query(
         """
-        DELETE FROM organograma.midias
+        DELETE FROM public.midias
         WHERE id_midia = ?
         RETURNING id_midia;
         """,
@@ -1352,7 +1356,7 @@ def delete_midia(id_midia: int):
 def create_termo_pt(dados: TermoPtSchema):
     resultado = executar_query(
         """
-        INSERT INTO organograma.termos_portugues
+        INSERT INTO public.termos_portugues
             (texto_portugues)
         VALUES (?)
         RETURNING id_termo_pt;
@@ -1374,7 +1378,7 @@ def update_termo_pt(
 ):
     resultado = executar_query(
         """
-        UPDATE organograma.termos_portugues
+        UPDATE public.termos_portugues
         SET texto_portugues = ?
         WHERE id_termo_pt = ?
         RETURNING id_termo_pt;
@@ -1402,7 +1406,7 @@ def update_termo_pt(
 def delete_termo_pt(id_termo_pt: int):
     resultado = executar_query(
         """
-        DELETE FROM organograma.termos_portugues
+        DELETE FROM public.termos_portugues
         WHERE id_termo_pt = ?
         RETURNING id_termo_pt;
         """,
@@ -1426,7 +1430,7 @@ def delete_termo_pt(id_termo_pt: int):
 def create_termo_akwe(dados: TermoAkweSchema):
     resultado = executar_query(
         """
-        INSERT INTO organograma.termos_akwe
+        INSERT INTO public.termos_akwe
             (texto_akwe, raiz_gramatical)
         VALUES (?, ?)
         RETURNING id_termo_akwe;
@@ -1451,7 +1455,7 @@ def update_termo_akwe(
 ):
     resultado = executar_query(
         """
-        UPDATE organograma.termos_akwe
+        UPDATE public.termos_akwe
         SET
             texto_akwe = ?,
             raiz_gramatical = ?
@@ -1482,7 +1486,7 @@ def update_termo_akwe(
 def delete_termo_akwe(id_termo_akwe: int):
     resultado = executar_query(
         """
-        DELETE FROM organograma.termos_akwe
+        DELETE FROM public.termos_akwe
         WHERE id_termo_akwe = ?
         RETURNING id_termo_akwe;
         """,
@@ -1506,7 +1510,7 @@ def delete_termo_akwe(id_termo_akwe: int):
 def create_estatistica(dados: EstatisticaCreateSchema):
     resultado = executar_query(
         """
-        INSERT INTO organograma.estatisticas_termos
+        INSERT INTO public.estatisticas_termos
             (id_traducao)
         VALUES (?)
         RETURNING id_estatistica;
@@ -1528,7 +1532,7 @@ def update_estatistica(
 ):
     resultado = executar_query(
         """
-        UPDATE organograma.estatisticas_termos
+        UPDATE public.estatisticas_termos
         SET
             id_traducao = ?,
             quantidade_consultas = ?,
@@ -1565,7 +1569,7 @@ def update_estatistica(
 def delete_estatistica(id_estatistica: int):
     resultado = executar_query(
         """
-        DELETE FROM organograma.estatisticas_termos
+        DELETE FROM public.estatisticas_termos
         WHERE id_estatistica = ?
         RETURNING id_estatistica;
         """,
@@ -1589,7 +1593,7 @@ def delete_estatistica(id_estatistica: int):
 def registrar_consulta(id_traducao: int):
     resultado = executar_query(
         """
-        SELECT organograma.registrar_consulta(?)
+        SELECT public.registrar_consulta(?)
         """,
         (id_traducao,),
         fetch_all=False,
