@@ -22,7 +22,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pwdlib import PasswordHash
-from jwt.exceptions import InvalidTokenError
+from jwt import PyJWTError as InvalidTokenError
 import asyncio
 import time
 from collections import defaultdict
