@@ -35,7 +35,8 @@ CREATE TABLE organograma.termos_traducoes (
 	id_termo_pt INT NOT NULL REFERENCES organograma.termos_portugues(id_termo_pt),
 	id_termo_akwe INT NOT NULL REFERENCES organograma.termos_akwe(id_termo_akwe),
 	id_categoria INT NOT NULL REFERENCES organograma.categorias(id_categoria),
-	explicacao_contexto TEXT
+	explicacao_contexto TEXT,
+	atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 6. Mídias (Tabela 5 - Áudios e Imagens da tradução)
