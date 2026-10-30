@@ -267,6 +267,10 @@ class EstatisticaUpdateSchema(BaseModel):
     nivel_clareza: int
     tempo_retencao_segundos: int
 
+
+class ClarezaUpdateSchema(BaseModel):
+    nivel_clareza: int = Field(ge=1, le=5)
+
 #endregion
 
 # ============================================================
@@ -687,6 +691,58 @@ def read_termos_pt():
         ),
     }
 
+
+@app.patch("/api/traducoes/{id_traducao}/consultar")
+def registrar_consulta(id_traducao: int):
+    resultado = executar_query(
+        """
+        SELECT public.registrar_consulta(?)
+        """,
+        (id_traducao,),
+        fetch_all=False,
+    )
+
+    if not resultado:
+        raise HTTPException(
+            status_code=404,
+            detail="Estatística não encontrada.",
+        )
+
+    return {
+        "status": "success",
+        "mensagem": "Consulta registrada.",
+    }
+
+
+@app.patch("/api/traducoes/{id_traducao}/clareza")
+def atualizar_clareza(id_traducao: int, dados: ClarezaUpdateSchema):
+    # Verifica se já existe registro de estatística para esta tradução
+    sql_check = "SELECT id_estatistica FROM public.estatisticas_termos WHERE id_traducao = %s;"
+    res = executar_query(sql_check, (id_traducao,), fetch_all=False)
+    
+    if res:
+        sql_update = """
+            UPDATE public.estatisticas_termos
+            SET nivel_clareza = %s
+            WHERE id_traducao = %s
+            RETURNING id_estatistica;
+        """
+        executar_query(sql_update, (dados.nivel_clareza, id_traducao), fetch_all=False)
+    else:
+        sql_insert = """
+            INSERT INTO public.estatisticas_termos 
+                (id_traducao, nivel_clareza, quantidade_consultas, reproducoes_audio, tempo_retencao_segundos)
+            VALUES (%s, %s, 0, 0, 0)
+            RETURNING id_estatistica;
+        """
+        executar_query(sql_insert, (id_traducao, dados.nivel_clareza), fetch_all=False)
+        
+    return {
+        "status": "success",
+        "mensagem": "Nível de clareza atualizado com sucesso."
+    }
+
+
 @app.get("/api/sync")
 def sincronizar_palavras():
     sql = """
@@ -697,7 +753,8 @@ def sincronizar_palavras():
             t.explicacao_contexto AS significado,
             MAX(CASE WHEN m.tipo = 'audio' THEN m.url_arquivo END) AS audio_url,
             MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url,
-            COALESCE(ARRAY_AGG(DISTINCT tg.nome) FILTER (WHERE tg.nome IS NOT NULL), ARRAY[]::VARCHAR[]) AS tags
+            COALESCE(ARRAY_AGG(DISTINCT tg.nome) FILTER (WHERE tg.nome IS NOT NULL), ARRAY[]::VARCHAR[]) AS tags,
+            MAX(e.nivel_clareza) AS nivel_clareza
         FROM public.termos_traducoes t
         INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
@@ -709,6 +766,8 @@ def sincronizar_palavras():
             ON t.id_traducao = tt.id_traducao
         LEFT JOIN public.tags tg
             ON tt.id_tag = tg.id_tag
+        LEFT JOIN public.estatisticas_termos e
+            ON t.id_traducao = e.id_traducao
         GROUP BY 
             t.id_traducao,
             ta.texto_akwe,
@@ -1578,29 +1637,6 @@ def delete_estatistica(id_estatistica: int):
         "status": "success",
         "mensagem": "Estatística removida.",
     }
-
-
-@app.patch("/api/traducoes/{id_traducao}/consultar")
-def registrar_consulta(id_traducao: int):
-    resultado = executar_query(
-        """
-        SELECT public.registrar_consulta(?)
-        """,
-        (id_traducao,),
-        fetch_all=False,
-    )
-
-    if not resultado:
-        raise HTTPException(
-            status_code=404,
-            detail="Estatística não encontrada.",
-        )
-
-    return {
-        "status": "success",
-        "mensagem": "Consulta registrada.",
-    }
-
 
 app.include_router(admin_router)
 

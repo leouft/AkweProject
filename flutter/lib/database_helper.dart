@@ -25,7 +25,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
     );
   }
@@ -43,7 +43,8 @@ class DatabaseHelper {
         media_url TEXT,
         local_audio_path TEXT,
         local_media_path TEXT,
-        tags TEXT
+        tags TEXT,
+        nivel_clareza INTEGER
       )
     ''');
   }
@@ -110,6 +111,7 @@ class DatabaseHelper {
               'local_audio_path': localAudioPath,
               'local_media_path': localMediaPath,
               'tags': jsonEncode(item['tags'] ?? []),
+              'nivel_clareza': item['nivel_clareza'] ?? 0,
             },
             conflictAlgorithm: ConflictAlgorithm.replace, // Substitui se já existir ID igual
           );
@@ -118,6 +120,30 @@ class DatabaseHelper {
       }
     } catch (e) {
       print("Erro ao conectar com a API FastAPI: $e");
+    }
+  }
+
+  // Método para atualizar a nota de clareza na API e no SQLite local
+  Future<void> atualizarClareza(int idTraducao, int novaClareza) async {
+    try {
+      final url = Uri.parse('${Config.baseUrl}/api/traducoes/$idTraducao/clareza');
+      final response = await http.patch(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'nivel_clareza': novaClareza}),
+      );
+
+      if (response.statusCode == 200) {
+        final db = await database;
+        await db.update(
+          'palavras',
+          {'nivel_clareza': novaClareza},
+          where: 'id_traducao = ?',
+          whereArgs: [idTraducao],
+        );
+      }
+    } catch (e) {
+      print("Erro ao atualizar clareza: $e");
     }
   }
 
