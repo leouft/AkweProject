@@ -25,7 +25,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 10,
+      version: 12,
       onCreate: _onCreate,
     );
   }
@@ -44,14 +44,45 @@ class DatabaseHelper {
         local_audio_path TEXT,
         local_media_path TEXT,
         tags TEXT,
-        nivel_clareza INTEGER
+        nivel_clareza INTEGER,
+        atualizado_em TEXT
       )
     ''');
   }
 
   Future<void> sincronizarComApi() async {
     try {
-      // endereço da api que sincroniza
+      // 1. Consulta os metadados leves do servidor primeiro
+      final metaUrl = Uri.parse('${Config.baseUrl}/api/sync/meta');
+      final metaResponse = await http.get(metaUrl);
+
+      if (metaResponse.statusCode == 200) {
+        final servidorMeta = json.decode(metaResponse.body);
+        final int servidorTotal = servidorMeta['total_registros'] ?? 0;
+        final int servidorMaxId = servidorMeta['max_id'] ?? 0;
+        final String? servidorUltimaAtualizacao = servidorMeta['ultima_atualizacao'];
+
+        // 2. Consulta o estado atual do SQLite local
+        final db = await database;
+        final localCountResult = await db.rawQuery('SELECT COUNT(*) as count, MAX(id_traducao) as max_id, MAX(atualizado_em) as ultima_atualizacao FROM palavras');
+        
+        if (localCountResult.isNotEmpty) {
+          final localRow = localCountResult.first;
+          final int localTotal = (localRow['count'] as int?) ?? 0;
+          final int localMaxId = (localRow['max_id'] as int?) ?? 0;
+          final String? localUltimaAtualizacao = localRow['ultima_atualizacao'] as String?;
+
+          // 3. Se os metadados forem idênticos, NENHUMA alteração ocorreu. Ignora o sync pesado!
+          if (localTotal == servidorTotal && 
+              localMaxId == servidorMaxId && 
+              localUltimaAtualizacao == servidorUltimaAtualizacao) {
+            print("Banco local já está atualizado. Sincronização ignorada.");
+            return;
+          }
+        }
+      }
+        
+      // 4. Se houver alterações, baixa a lista completa do /api/sync
       final url = Uri.parse('${Config.baseUrl}/api/sync'); 
       
       final response = await http.get(url);
@@ -112,6 +143,7 @@ class DatabaseHelper {
               'local_media_path': localMediaPath,
               'tags': jsonEncode(item['tags'] ?? []),
               'nivel_clareza': item['nivel_clareza'] ?? 0,
+              'atualizado_em': item['atualizado_em'],
             },
             conflictAlgorithm: ConflictAlgorithm.replace, // Substitui se já existir ID igual
           );

@@ -54,9 +54,6 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _futurePalavras = _dbHelper.getPalavras();
-          _paginaAtual = 0;
-          expandedIndex = null;
-          _pageInputController.text = (_paginaAtual + 1).toString();
         });
       }
     } catch (e) {
