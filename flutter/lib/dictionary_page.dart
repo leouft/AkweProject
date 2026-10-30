@@ -49,12 +49,19 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sincronizarESincronizarDados() async {
     try {
-      await _dbHelper.sincronizarComApi();
-
-      if (mounted) {
+      bool atualizou = await _dbHelper.sincronizarComApi();
+      
+      if (atualizou && mounted) {
         setState(() {
           _futurePalavras = _dbHelper.getPalavras();
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dicionário atualizado com novas alterações!'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
       }
     } catch (e) {
       print("Erro na sincronização em segundo plano: $e");

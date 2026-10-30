@@ -50,7 +50,7 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<void> sincronizarComApi() async {
+  Future<bool> sincronizarComApi() async {
     try {
       // 1. Consulta os metadados leves do servidor primeiro
       final metaUrl = Uri.parse('${Config.baseUrl}/api/sync/meta');
@@ -77,14 +77,13 @@ class DatabaseHelper {
               localMaxId == servidorMaxId && 
               localUltimaAtualizacao == servidorUltimaAtualizacao) {
             print("Banco local já está atualizado. Sincronização ignorada.");
-            return;
+            return false;
           }
         }
       }
         
       // 4. Se houver alterações, baixa a lista completa do /api/sync
       final url = Uri.parse('${Config.baseUrl}/api/sync'); 
-      
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -145,14 +144,16 @@ class DatabaseHelper {
               'nivel_clareza': item['nivel_clareza'] ?? 0,
               'atualizado_em': item['atualizado_em'],
             },
-            conflictAlgorithm: ConflictAlgorithm.replace, // Substitui se já existir ID igual
+            conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
         print("Sincronização realizada com sucesso!");
+        return true;
       }
     } catch (e) {
       print("Erro ao conectar com a API FastAPI: $e");
     }
+    return false;
   }
 
   // Método para atualizar a nota de clareza na API e no SQLite local
