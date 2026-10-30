@@ -743,6 +743,24 @@ def atualizar_clareza(id_traducao: int, dados: ClarezaUpdateSchema):
     }
 
 
+@app.get("/api/sync/meta")
+def obter_metadados_sync():
+    sql = """
+        SELECT 
+            COUNT(t.id_traducao) AS total_registros,
+            MAX(t.id_traducao) AS max_id,
+            MAX(t.atualizado_em) AS ultima_atualizacao
+        FROM public.termos_traducoes t;
+    """
+    resultado = executar_query(sql, fetch_all=False)
+    
+    # Converte o datetime do Python para string ISO se existir
+    if resultado and resultado.get("ultima_atualizacao"):
+        resultado["ultima_atualizacao"] = resultado["ultima_atualizacao"].isoformat()
+        
+    return resultado or {"total_registros": 0, "max_id": 0, "ultima_atualizacao": None}
+
+
 @app.get("/api/sync")
 def sincronizar_palavras():
     sql = """
@@ -754,7 +772,8 @@ def sincronizar_palavras():
             MAX(CASE WHEN m.tipo = 'audio' THEN m.url_arquivo END) AS audio_url,
             MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url,
             COALESCE(ARRAY_AGG(DISTINCT tg.nome) FILTER (WHERE tg.nome IS NOT NULL), ARRAY[]::VARCHAR[]) AS tags,
-            MAX(e.nivel_clareza) AS nivel_clareza
+            MAX(e.nivel_clareza) AS nivel_clareza,
+            t.atualizado_em
         FROM public.termos_traducoes t
         INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
@@ -772,11 +791,18 @@ def sincronizar_palavras():
             t.id_traducao,
             ta.texto_akwe,
             tp.texto_portugues,
-            t.explicacao_contexto
+            t.explicacao_contexto,
+            t.atualizado_em
         ORDER BY t.id_traducao ASC;
     """
     
     resultados = executar_query(sql, fetch_all=True)
+    
+    # Converte o datetime do Python para string ISO em cada registro
+    for row in resultados:
+        if row.get("atualizado_em"):
+            row["atualizado_em"] = row["atualizado_em"].isoformat()
+            
     return resultados
 
 #endregion
