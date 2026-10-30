@@ -1,6 +1,6 @@
 -- #region 1. CRIAÇÃO DAS CATEGORIAS
-TRUNCATE TABLE organograma.categorias RESTART IDENTITY CASCADE;
-INSERT INTO organograma.categorias(id_categoria, nome)
+TRUNCATE TABLE public.categorias RESTART IDENTITY CASCADE;
+INSERT INTO public.categorias(id_categoria, nome)
 VALUES
 (1, 'Corpo Humano, Saúde e Anatomia'),
 (2, 'Fauna'),
@@ -16,8 +16,8 @@ VALUES
 -- #endregion
 
 -- #region 2. CRIAÇÃO DOS TERMOS PT
-TRUNCATE TABLE organograma.termos_portugues RESTART IDENTITY CASCADE;
-INSERT INTO organograma.termos_portugues(id_termo_pt, texto_portugues)
+TRUNCATE TABLE public.termos_portugues RESTART IDENTITY CASCADE;
+INSERT INTO public.termos_portugues(id_termo_pt, texto_portugues)
 VALUES
 (1, 'a'),
 (2, 'abacaxi'),
@@ -2332,9 +2332,9 @@ VALUES
 -- #endregion
 
 -- #region 3. CRIAÇÃO DOS TERMOS AKWE
-TRUNCATE TABLE organograma.termos_akwe RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.termos_akwe RESTART IDENTITY CASCADE;
 
-INSERT INTO organograma.termos_akwe(id_termo_akwe, texto_akwe, raiz_gramatical)
+INSERT INTO public.termos_akwe(id_termo_akwe, texto_akwe, raiz_gramatical)
 VALUES
 (1, 'mba', NULL),
 (2, 'ku', NULL),
@@ -4915,9 +4915,9 @@ VALUES
 -- #endregion
 
 -- #region 4. CRIAÇÃO DAS TRADUÇÕES (LINK AKWE-PT)
-TRUNCATE TABLE organograma.termos_traducoes RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.termos_traducoes RESTART IDENTITY CASCADE;
 
-INSERT INTO organograma.termos_traducoes (id_traducao, id_termo_pt, id_termo_akwe, id_categoria, explicacao_contexto)
+INSERT INTO public.termos_traducoes (id_traducao, id_termo_pt, id_termo_akwe, id_categoria, explicacao_contexto)
 VALUES
 (1, 1, 1, 6, NULL),
 (2, 1, 2, 6, NULL),
@@ -8281,9 +8281,9 @@ VALUES
 -- #endregion
 
 -- #region 5. CRIAÇÃO DAS ESTATÍSTICAS
-TRUNCATE TABLE organograma.estatisticas_termos RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.estatisticas_termos RESTART IDENTITY CASCADE;
 
-INSERT INTO organograma.estatisticas_termos(id_estatistica, id_traducao, quantidade_consultas, reproducoes_audio, nivel_clareza, tempo_retencao_segundos)
+INSERT INTO public.estatisticas_termos(id_estatistica, id_traducao, quantidade_consultas, reproducoes_audio, nivel_clareza, tempo_retencao_segundos)
 VALUES
 (1, 1, 0, 0, NULL, 0),
 (2, 2, 0, 0, NULL, 0),
@@ -11647,9 +11647,9 @@ VALUES
 -- #endregion
 
 -- #region 6. CRIAÇÃO DAS TAGS
-TRUNCATE TABLE organograma.tags RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.tags RESTART IDENTITY CASCADE;
 
-INSERT INTO organograma.tags(id_tag, nome)
+INSERT INTO public.tags(id_tag, nome)
 VALUES
 (1, 'preposição'),
 (2, 'fruta'),
@@ -11694,9 +11694,9 @@ VALUES
 -- #endregion
 
 -- #region 7. LINK TERMO-TRADUÇÃO
-DELETE FROM organograma.termo_tags;
+DELETE FROM public.termo_tags;
 
-INSERT INTO organograma.termo_tags (id_traducao, id_tag)
+INSERT INTO public.termo_tags (id_traducao, id_tag)
 VALUES
 (1, 1),
 (2, 1),
@@ -15084,9 +15084,9 @@ VALUES
 
 -- #region 8. CRIAÇÃO DE USUÁRIO ADMIN
 
-DELETE FROM organograma.usuarios;
-ALTER SEQUENCE organograma.usuarios_id_usuario_seq RESTART WITH 1;
-INSERT INTO organograma.usuarios (
+DELETE FROM public.usuarios;
+ALTER SEQUENCE public.usuarios_id_usuario_seq RESTART WITH 1;
+INSERT INTO public.usuarios (
     username,
     email,
     senha_hash,
@@ -15104,8 +15104,8 @@ VALUES (
 -- #endregion
 
 -- #region 9. CRIAÇÃO DE MÍDIAS (APENAS EXEMPLO, JÁ QUE NÃO POSSUÍMOS MÍDIAS REAIS NO MOMENTO)
-TRUNCATE TABLE organograma.midias RESTART IDENTITY CASCADE;
-INSERT INTO organograma.midias(tipo, url_arquivo, id_traducao)
+TRUNCATE TABLE public.midias RESTART IDENTITY CASCADE;
+INSERT INTO public.midias(tipo, url_arquivo, id_traducao)
 VALUES
 	('audio', '/midias/audio/kra.mp3', 709),
 	('audio', '/midias/audio/di.mp3', 16),
