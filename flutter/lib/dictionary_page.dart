@@ -29,7 +29,7 @@ class _HomePageState extends State<HomePage> {
       .getPalavras();
 
   // Paginação
-  static const int _itensPorPagina = 5;
+  static const int _itensPorPagina = 10;
   int _paginaAtual = 0;
 
   // controle para entrada manual da página
@@ -242,7 +242,7 @@ class _HomePageState extends State<HomePage> {
                                     .toList();
 
                             final tagText = tags.isEmpty
-                                ? 'tag • tag • tag'
+                                ? 'sem tags'
                                 : tags.join(' • ');
 
                             return GestureDetector(

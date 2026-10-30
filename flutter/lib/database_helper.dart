@@ -25,7 +25,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
     );
   }
@@ -42,7 +42,8 @@ class DatabaseHelper {
         audio_url TEXT,
         media_url TEXT,
         local_audio_path TEXT,
-        local_media_path TEXT
+        local_media_path TEXT,
+        tags TEXT
       )
     ''');
   }
@@ -108,6 +109,7 @@ class DatabaseHelper {
               'media_url': item['media_url'],
               'local_audio_path': localAudioPath,
               'local_media_path': localMediaPath,
+              'tags': jsonEncode(item['tags'] ?? []),
             },
             conflictAlgorithm: ConflictAlgorithm.replace, // Substitui se já existir ID igual
           );
@@ -119,26 +121,48 @@ class DatabaseHelper {
     }
   }
 
+  // Helper para converter o campo 'tags' de string JSON para List<dynamic>
+  List<Map<String, dynamic>> _formatarPalavras(
+    List<Map<String, Object?>> maps,
+  ) {
+    return maps.map((map) {
+      final novoMap = Map<String, dynamic>.from(map);
+
+      if (novoMap['tags'] is String) {
+        try {
+          novoMap['tags'] = jsonDecode(novoMap['tags']);
+        } catch (_) {
+          novoMap['tags'] = [];
+        }
+      } else {
+        novoMap['tags'] ??= [];
+      }
+
+      return novoMap;
+    }).toList();
+  }
+
   // Método para buscar todas as palavras cadastradas no banco
   Future<List<Map<String, dynamic>>> getPalavras() async {
     final db = await database;
-    return await db.query('palavras');
+    final resultado = await db.query('palavras');
+    return _formatarPalavras(resultado);
   }
 
   // Método para buscar uma palavra específica
   Future<List<Map<String, dynamic>>> searchPalavras(String query) async {
     final db = await database;
-    
-    // Se a busca estiver vazia, retorna todas as palavras
+
     if (query.trim().isEmpty) {
-      return await getPalavras();
+      return getPalavras();
     }
 
-    // Faz a consulta no SQLite filtrando com LIKE
-    return await db.query(
+    final resultado = await db.query(
       'palavras',
       where: 'akwe LIKE ? OR portugues LIKE ?',
       whereArgs: ['%$query%', '%$query%'],
     );
-  } 
+
+    return _formatarPalavras(resultado);
+  }
 }
