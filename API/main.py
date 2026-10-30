@@ -696,7 +696,8 @@ def sincronizar_palavras():
             tp.texto_portugues AS portugues,
             t.explicacao_contexto AS significado,
             MAX(CASE WHEN m.tipo = 'audio' THEN m.url_arquivo END) AS audio_url,
-            MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url
+            MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url,
+            COALESCE(ARRAY_AGG(DISTINCT tg.nome) FILTER (WHERE tg.nome IS NOT NULL), ARRAY[]::VARCHAR[]) AS tags
         FROM public.termos_traducoes t
         INNER JOIN public.termos_portugues tp
             ON t.id_termo_pt = tp.id_termo_pt
@@ -704,6 +705,10 @@ def sincronizar_palavras():
             ON t.id_termo_akwe = ta.id_termo_akwe
         LEFT JOIN public.midias m
             ON t.id_traducao = m.id_traducao
+        LEFT JOIN public.termo_tags tt
+            ON t.id_traducao = tt.id_traducao
+        LEFT JOIN public.tags tg
+            ON tt.id_tag = tg.id_tag
         GROUP BY 
             t.id_traducao,
             ta.texto_akwe,
