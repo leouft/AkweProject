@@ -66,7 +66,7 @@ CREATE TABLE public.estatisticas_termos (
 	id_traducao INT NOT NULL UNIQUE REFERENCES public.termos_traducoes(id_traducao),
 	quantidade_consultas INT DEFAULT 0,
 	reproducoes_audio INT DEFAULT 0,
-	nivel_clareza INT CHECK (nivel_clareza BETWEEN 1 AND 5),
+	nivel_clareza DECIMAL(3,2) DEFAULT 0.0 CHECK (nivel_clareza BETWEEN 0.0 AND 5.0),
 	tempo_retencao_segundos INT DEFAULT 0
 );
 
