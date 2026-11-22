@@ -27,8 +27,20 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _onCreate,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 14) {
+          await db.execute(
+            'ALTER TABLE palavras '
+            'ADD COLUMN quantidade_consultas INTEGER DEFAULT 0',
+          );
+          await db.execute(
+            'ALTER TABLE palavras '
+            'ADD COLUMN reproducoes_audio INTEGER DEFAULT 0',
+          );
+        }
+      },
     );
   }
 
@@ -48,6 +60,8 @@ class DatabaseHelper {
         tags TEXT,
         nivel_clareza REAL,
         quantidade_avaliacoes INTEGER DEFAULT 0,
+        quantidade_consultas INTEGER DEFAULT 0,
+        reproducoes_audio INTEGER DEFAULT 0,
         atualizado_em TEXT
       )
     ''');
@@ -148,6 +162,10 @@ class DatabaseHelper {
                 (item['nivel_clareza'] as num?)?.toDouble() ?? 0.0,
               'quantidade_avaliacoes':
                 item['quantidade_avaliacoes'] ?? 0,
+              'quantidade_consultas':
+                item['quantidade_consultas'] ?? 0,
+              'reproducoes_audio':
+                item['reproducoes_audio'] ?? 0,
               'atualizado_em': item['atualizado_em'],
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
@@ -229,6 +247,64 @@ class DatabaseHelper {
     );
 
     return resultado;
+  }
+
+  Future<bool> registrarConsulta(int idTraducao) async {
+    try {
+      final url = Uri.parse(
+        '${Config.baseUrl}/api/traducoes/$idTraducao/consultar',
+      );
+      final response = await http.patch(url);
+
+      if (response.statusCode == 200) {
+        final resultado =
+            json.decode(response.body) as Map<String, dynamic>;
+        final db = await database;
+
+        await db.update(
+          'palavras',
+          {
+            'quantidade_consultas':
+                resultado['quantidade_consultas'] ?? 0,
+          },
+          where: 'id_traducao = ?',
+          whereArgs: [idTraducao],
+        );
+        return true;
+      }
+    } catch (e) {
+      print("Erro ao registrar consulta: $e");
+    }
+    return false;
+  }
+
+  Future<bool> registrarReproducaoAudio(int idTraducao) async {
+    try {
+      final url = Uri.parse(
+        '${Config.baseUrl}/api/traducoes/$idTraducao/reproduzir-audio',
+      );
+      final response = await http.patch(url);
+
+      if (response.statusCode == 200) {
+        final resultado =
+            json.decode(response.body) as Map<String, dynamic>;
+        final db = await database;
+
+        await db.update(
+          'palavras',
+          {
+            'reproducoes_audio':
+                resultado['reproducoes_audio'] ?? 0,
+          },
+          where: 'id_traducao = ?',
+          whereArgs: [idTraducao],
+        );
+        return true;
+      }
+    } catch (e) {
+      print("Erro ao registrar reprodução de áudio: $e");
+    }
+    return false;
   }
 
   // Helper para converter o campo 'tags' de string JSON para List<dynamic>

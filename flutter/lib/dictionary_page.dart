@@ -449,6 +449,15 @@ class _HomePageState extends State<HomePage> {
 
                             return GestureDetector(
                               onTap: () {
+                                if (!isExpanded) {
+                                  final idTraducao =
+                                      item['id_traducao'] as int?;
+
+                                  if (idTraducao != null) {
+                                    _dbHelper.registrarConsulta(idTraducao);
+                                  }
+                                }
+
                                 setState(() {
                                   expandedIndex = isExpanded ? null : index;
                                 });

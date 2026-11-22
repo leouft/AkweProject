@@ -697,7 +697,16 @@ def read_termos_pt():
 def registrar_consulta(id_traducao: int):
     resultado = executar_query(
         """
-        SELECT public.registrar_consulta(?)
+        INSERT INTO public.estatisticas_termos
+            (id_traducao, quantidade_consultas)
+        SELECT id_traducao, 1
+        FROM public.termos_traducoes
+        WHERE id_traducao = ?
+        ON CONFLICT (id_traducao)
+        DO UPDATE SET
+            quantidade_consultas =
+                public.estatisticas_termos.quantidade_consultas + 1
+        RETURNING quantidade_consultas;
         """,
         (id_traducao,),
         fetch_all=False,
@@ -706,12 +715,45 @@ def registrar_consulta(id_traducao: int):
     if not resultado:
         raise HTTPException(
             status_code=404,
-            detail="Estatística não encontrada.",
+            detail="Tradução não encontrada.",
         )
 
     return {
         "status": "success",
         "mensagem": "Consulta registrada.",
+        "quantidade_consultas": resultado["quantidade_consultas"],
+    }
+
+
+@app.patch("/api/traducoes/{id_traducao}/reproduzir-audio")
+def registrar_reproducao_audio(id_traducao: int):
+    resultado = executar_query(
+        """
+        INSERT INTO public.estatisticas_termos
+            (id_traducao, reproducoes_audio)
+        SELECT id_traducao, 1
+        FROM public.termos_traducoes
+        WHERE id_traducao = ?
+        ON CONFLICT (id_traducao)
+        DO UPDATE SET
+            reproducoes_audio =
+                public.estatisticas_termos.reproducoes_audio + 1
+        RETURNING reproducoes_audio;
+        """,
+        (id_traducao,),
+        fetch_all=False,
+    )
+
+    if not resultado:
+        raise HTTPException(
+            status_code=404,
+            detail="Tradução não encontrada.",
+        )
+
+    return {
+        "status": "success",
+        "mensagem": "Reprodução de áudio registrada.",
+        "reproducoes_audio": resultado["reproducoes_audio"],
     }
 
 
@@ -816,6 +858,8 @@ def sincronizar_palavras():
             ) AS tags,
             COALESCE(av.nivel_clareza, 0.0) AS nivel_clareza,
             COALESCE(av.quantidade_avaliacoes, 0) AS quantidade_avaliacoes,
+            COALESCE(e.quantidade_consultas, 0) AS quantidade_consultas,
+            COALESCE(e.reproducoes_audio, 0) AS reproducoes_audio,
             t.atualizado_em
         FROM public.termos_traducoes t
         INNER JOIN public.termos_portugues tp
@@ -837,6 +881,8 @@ def sincronizar_palavras():
             GROUP BY id_traducao
         ) av
             ON av.id_traducao = t.id_traducao
+        LEFT JOIN public.estatisticas_termos e
+            ON e.id_traducao = t.id_traducao
         GROUP BY
             t.id_traducao,
             ta.texto_akwe,
@@ -844,6 +890,8 @@ def sincronizar_palavras():
             t.explicacao_contexto,
             av.nivel_clareza,
             av.quantidade_avaliacoes,
+            e.quantidade_consultas,
+            e.reproducoes_audio,
             t.atualizado_em
         ORDER BY t.id_traducao ASC;
     """
