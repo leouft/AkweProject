@@ -697,20 +697,28 @@ def read_termos_pt():
 def registrar_consulta(id_traducao: int):
     resultado = executar_query(
         """
-        INSERT INTO public.estatisticas_termos
-            (id_traducao, quantidade_consultas)
-        SELECT id_traducao, 1
-        FROM public.termos_traducoes
+        UPDATE public.estatisticas_termos
+        SET quantidade_consultas = quantidade_consultas + 1
         WHERE id_traducao = ?
-        ON CONFLICT (id_traducao)
-        DO UPDATE SET
-            quantidade_consultas =
-                public.estatisticas_termos.quantidade_consultas + 1
         RETURNING quantidade_consultas;
         """,
         (id_traducao,),
         fetch_all=False,
     )
+
+    if not resultado:
+        resultado = executar_query(
+            """
+            INSERT INTO public.estatisticas_termos
+                (id_traducao, quantidade_consultas)
+            SELECT id_traducao, 1
+            FROM public.termos_traducoes
+            WHERE id_traducao = ?
+            RETURNING quantidade_consultas;
+            """,
+            (id_traducao,),
+            fetch_all=False,
+        )
 
     if not resultado:
         raise HTTPException(
@@ -729,20 +737,28 @@ def registrar_consulta(id_traducao: int):
 def registrar_reproducao_audio(id_traducao: int):
     resultado = executar_query(
         """
-        INSERT INTO public.estatisticas_termos
-            (id_traducao, reproducoes_audio)
-        SELECT id_traducao, 1
-        FROM public.termos_traducoes
+        UPDATE public.estatisticas_termos
+        SET reproducoes_audio = reproducoes_audio + 1
         WHERE id_traducao = ?
-        ON CONFLICT (id_traducao)
-        DO UPDATE SET
-            reproducoes_audio =
-                public.estatisticas_termos.reproducoes_audio + 1
         RETURNING reproducoes_audio;
         """,
         (id_traducao,),
         fetch_all=False,
     )
+
+    if not resultado:
+        resultado = executar_query(
+            """
+            INSERT INTO public.estatisticas_termos
+                (id_traducao, reproducoes_audio)
+            SELECT id_traducao, 1
+            FROM public.termos_traducoes
+            WHERE id_traducao = ?
+            RETURNING reproducoes_audio;
+            """,
+            (id_traducao,),
+            fetch_all=False,
+        )
 
     if not resultado:
         raise HTTPException(
