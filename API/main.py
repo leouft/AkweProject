@@ -270,6 +270,7 @@ class EstatisticaUpdateSchema(BaseModel):
 
 class ClarezaUpdateSchema(BaseModel):
     nivel_clareza: int = Field(ge=1, le=5)
+    avaliador_id: str = Field(min_length=8, max_length=64)
 
 #endregion
 
@@ -715,33 +716,70 @@ def registrar_consulta(id_traducao: int):
 
 
 @app.patch("/api/traducoes/{id_traducao}/clareza")
-def atualizar_clareza(id_traducao: int, dados: ClarezaUpdateSchema):
-    # Verifica se já existe registro de estatística para esta tradução
-    sql_check = "SELECT id_estatistica FROM public.estatisticas_termos WHERE id_traducao = %s;"
-    res = executar_query(sql_check, (id_traducao,), fetch_all=False)
-    
-    if res:
-        sql_update = """
-            UPDATE public.estatisticas_termos
-            SET nivel_clareza = %s
-            WHERE id_traducao = %s
-            RETURNING id_estatistica;
+def atualizar_clareza(
+    id_traducao: int,
+    dados: ClarezaUpdateSchema,
+):
+    resultado = executar_query(
         """
-        executar_query(sql_update, (dados.nivel_clareza, id_traducao), fetch_all=False)
-    else:
-        sql_insert = """
-            INSERT INTO public.estatisticas_termos 
-                (id_traducao, nivel_clareza, quantidade_consultas, reproducoes_audio, tempo_retencao_segundos)
-            VALUES (%s, %s, 0, 0, 0)
-            RETURNING id_estatistica;
+        INSERT INTO public.avaliacoes_clareza
+            (id_traducao, avaliador_id, nota)
+        VALUES (?, ?, ?)
+        ON CONFLICT (id_traducao, avaliador_id)
+        DO UPDATE SET
+            nota = EXCLUDED.nota,
+            atualizado_em = CURRENT_TIMESTAMP
+        RETURNING id_avaliacao;
+        """,
+        (
+            id_traducao,
+            dados.avaliador_id,
+            dados.nivel_clareza,
+        ),
+        fetch_all=False,
+    )
+
+    if not resultado:
+        raise HTTPException(
+            status_code=404,
+            detail="Tradução não encontrada.",
+        )
+
+    estatisticas = executar_query(
         """
-        executar_query(sql_insert, (id_traducao, dados.nivel_clareza), fetch_all=False)
-        
+        SELECT
+            ROUND(AVG(nota)::NUMERIC, 2) AS nivel_clareza,
+            COUNT(*) AS quantidade_avaliacoes
+        FROM public.avaliacoes_clareza
+        WHERE id_traducao = ?;
+        """,
+        (id_traducao,),
+        fetch_all=False,
+    )
+
+    nivel_clareza = float(estatisticas["nivel_clareza"])
+    quantidade_avaliacoes = int(estatisticas["quantidade_avaliacoes"])
+
+    executar_query(
+        """
+        INSERT INTO public.estatisticas_termos
+            (id_traducao, nivel_clareza)
+        VALUES (?, ?)
+        ON CONFLICT (id_traducao)
+        DO UPDATE SET
+            nivel_clareza = EXCLUDED.nivel_clareza;
+        """,
+        (id_traducao, nivel_clareza),
+        fetch_all=False,
+    )
+
     return {
         "status": "success",
-        "mensagem": "Nível de clareza atualizado com sucesso."
+        "mensagem": "Avaliação registrada com sucesso.",
+        "nivel_clareza": nivel_clareza,
+        "quantidade_avaliacoes": quantidade_avaliacoes,
+        "sua_nota": dados.nivel_clareza,
     }
-
 
 @app.get("/api/sync/meta")
 def obter_metadados_sync():
@@ -764,15 +802,20 @@ def obter_metadados_sync():
 @app.get("/api/sync")
 def sincronizar_palavras():
     sql = """
-        SELECT 
+        SELECT
             t.id_traducao,
             ta.texto_akwe AS akwe,
             tp.texto_portugues AS portugues,
             t.explicacao_contexto AS significado,
             MAX(CASE WHEN m.tipo = 'audio' THEN m.url_arquivo END) AS audio_url,
             MAX(CASE WHEN m.tipo IN ('imagem', 'video') THEN m.url_arquivo END) AS media_url,
-            COALESCE(ARRAY_AGG(DISTINCT tg.nome) FILTER (WHERE tg.nome IS NOT NULL), ARRAY[]::VARCHAR[]) AS tags,
-            MAX(e.nivel_clareza) AS nivel_clareza,
+            COALESCE(
+                ARRAY_AGG(DISTINCT tg.nome)
+                    FILTER (WHERE tg.nome IS NOT NULL),
+                ARRAY[]::VARCHAR[]
+            ) AS tags,
+            COALESCE(av.nivel_clareza, 0.0) AS nivel_clareza,
+            COALESCE(av.quantidade_avaliacoes, 0) AS quantidade_avaliacoes,
             t.atualizado_em
         FROM public.termos_traducoes t
         INNER JOIN public.termos_portugues tp
@@ -785,13 +828,22 @@ def sincronizar_palavras():
             ON t.id_traducao = tt.id_traducao
         LEFT JOIN public.tags tg
             ON tt.id_tag = tg.id_tag
-        LEFT JOIN public.estatisticas_termos e
-            ON t.id_traducao = e.id_traducao
-        GROUP BY 
+        LEFT JOIN (
+            SELECT
+                id_traducao,
+                ROUND(AVG(nota)::NUMERIC, 2) AS nivel_clareza,
+                COUNT(*) AS quantidade_avaliacoes
+            FROM public.avaliacoes_clareza
+            GROUP BY id_traducao
+        ) av
+            ON av.id_traducao = t.id_traducao
+        GROUP BY
             t.id_traducao,
             ta.texto_akwe,
             tp.texto_portugues,
             t.explicacao_contexto,
+            av.nivel_clareza,
+            av.quantidade_avaliacoes,
             t.atualizado_em
         ORDER BY t.id_traducao ASC;
     """
