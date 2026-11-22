@@ -92,3 +92,24 @@ CREATE TABLE IF NOT EXISTS public.usuarios (
 
     atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS public.avaliacoes_clareza (
+    id_avaliacao SERIAL PRIMARY KEY,
+    id_traducao INTEGER NOT NULL
+        REFERENCES public.termos_traducoes(id_traducao)
+        ON DELETE CASCADE,
+
+    avaliador_id VARCHAR(64) NOT NULL,
+
+    nota SMALLINT NOT NULL
+        CHECK (nota BETWEEN 1 AND 5),
+
+    criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_avaliacao_por_traducao
+        UNIQUE (id_traducao, avaliador_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_avaliacoes_clareza_traducao
+    ON public.avaliacoes_clareza(id_traducao);

@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'config.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -25,7 +27,7 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _onCreate,
     );
   }
@@ -44,7 +46,8 @@ class DatabaseHelper {
         local_audio_path TEXT,
         local_media_path TEXT,
         tags TEXT,
-        nivel_clareza INTEGER,
+        nivel_clareza REAL,
+        quantidade_avaliacoes INTEGER DEFAULT 0,
         atualizado_em TEXT
       )
     ''');
@@ -141,7 +144,10 @@ class DatabaseHelper {
               'local_audio_path': localAudioPath,
               'local_media_path': localMediaPath,
               'tags': jsonEncode(item['tags'] ?? []),
-              'nivel_clareza': item['nivel_clareza'] ?? 0,
+              'nivel_clareza':
+                (item['nivel_clareza'] as num?)?.toDouble() ?? 0.0,
+              'quantidade_avaliacoes':
+                item['quantidade_avaliacoes'] ?? 0,
               'atualizado_em': item['atualizado_em'],
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
@@ -156,28 +162,73 @@ class DatabaseHelper {
     return false;
   }
 
-  // Método para atualizar a nota de clareza na API e no SQLite local
-  Future<void> atualizarClareza(int idTraducao, int novaClareza) async {
-    try {
-      final url = Uri.parse('${Config.baseUrl}/api/traducoes/$idTraducao/clareza');
-      final response = await http.patch(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'nivel_clareza': novaClareza}),
-      );
+  Future<Map<String, dynamic>> buscarAvaliacao(int idTraducao) async {
+    final prefs = await SharedPreferences.getInstance();
 
-      if (response.statusCode == 200) {
-        final db = await database;
-        await db.update(
-          'palavras',
-          {'nivel_clareza': novaClareza},
-          where: 'id_traducao = ?',
-          whereArgs: [idTraducao],
-        );
-      }
-    } catch (e) {
-      print("Erro ao atualizar clareza: $e");
+    String? avaliadorId = prefs.getString('avaliador_id');
+    avaliadorId ??= const Uuid().v4();
+    await prefs.setString('avaliador_id', avaliadorId);
+
+    final url = Uri.parse(
+      '${Config.baseUrl}/api/traducoes/$idTraducao/clareza'
+      '?avaliador_id=${Uri.encodeQueryComponent(avaliadorId)}',
+    );
+
+    final response = await http.get(url);
+
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao buscar avaliação');
     }
+
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> atualizarClareza(
+    int idTraducao,
+    int novaClareza,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    String? avaliadorId = prefs.getString('avaliador_id');
+    avaliadorId ??= const Uuid().v4();
+    await prefs.setString('avaliador_id', avaliadorId);
+
+    final url = Uri.parse(
+      '${Config.baseUrl}/api/traducoes/$idTraducao/clareza',
+    );
+
+    final response = await http.patch(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'nivel_clareza': novaClareza,
+        'avaliador_id': avaliadorId,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Erro ao enviar avaliação: ${response.statusCode}',
+      );
+    }
+
+    final resultado =
+        json.decode(response.body) as Map<String, dynamic>;
+
+    final db = await database;
+    await db.update(
+      'palavras',
+      {
+        'nivel_clareza':
+            (resultado['nivel_clareza'] as num).toDouble(),
+        'quantidade_avaliacoes':
+            resultado['quantidade_avaliacoes'] ?? 0,
+      },
+      where: 'id_traducao = ?',
+      whereArgs: [idTraducao],
+    );
+
+    return resultado;
   }
 
   // Helper para converter o campo 'tags' de string JSON para List<dynamic>

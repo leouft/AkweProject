@@ -128,6 +128,204 @@ class _HomePageState extends State<HomePage> {
     return semDuplicados;
   }
 
+  Future<void> _abrirMenuAvaliacao(Map<String, dynamic> item) async {
+    final idTraducao = item['id_traducao'] as int;
+
+    double mediaAtual =
+        (item['nivel_clareza'] as num?)?.toDouble() ?? 0.0;
+
+    int quantidadeAvaliacoes =
+        (item['quantidade_avaliacoes'] as num?)?.toInt() ?? 0;
+
+    int? suaNota;
+
+    try {
+      final avaliacao = await _dbHelper.buscarAvaliacao(idTraducao);
+
+      mediaAtual =
+          (avaliacao['nivel_clareza'] as num?)?.toDouble() ??
+              mediaAtual;
+
+      quantidadeAvaliacoes =
+          (avaliacao['quantidade_avaliacoes'] as num?)?.toInt() ??
+              quantidadeAvaliacoes;
+
+      suaNota =
+          (avaliacao['sua_nota'] as num?)?.toInt();
+    } catch (e) {
+      debugPrint('Erro ao buscar avaliação: $e');
+    }
+
+    if (!mounted) return;
+
+    int notaSelecionada = suaNota ?? 0;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    Text(
+                      item['portugues'] ?? '',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final estrela = index + 1;
+                        final preenchida =
+                            estrela <= mediaAtual.round();
+
+                        return Icon(
+                          preenchida
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: Colors.amber,
+                          size: 28,
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${mediaAtual.toStringAsFixed(2)} '
+                      '($quantidadeAvaliacoes ${quantidadeAvaliacoes == 1 ? 'avaliação' : 'avaliações'})',
+                      style: TextStyle(
+                        color: AppTheme.primary.withOpacity(0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Sua avaliação',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final estrela = index + 1;
+
+                        return IconButton(
+                          tooltip: '$estrela estrela${estrela == 1 ? '' : 's'}',
+                          onPressed: () {
+                            setModalState(() {
+                              notaSelecionada = estrela;
+                            });
+                          },
+                          icon: Icon(
+                            estrela <= notaSelecionada
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: Colors.amber,
+                            size: 38,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: notaSelecionada == 0
+                            ? null
+                            : () async {
+                                try {
+                                  final resultado =
+                                      await _dbHelper.atualizarClareza(
+                                    idTraducao,
+                                    notaSelecionada,
+                                  );
+
+                                  if (!sheetContext.mounted) return;
+
+                                  setState(() {
+                                    item['nivel_clareza'] =
+                                        (resultado['nivel_clareza'] as num)
+                                            .toDouble();
+
+                                    item['quantidade_avaliacoes'] =
+                                        resultado[
+                                            'quantidade_avaliacoes'];
+                                  });
+
+                                  Navigator.of(sheetContext).pop();
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Avaliação enviada com sucesso!',
+                                      ),
+                                      backgroundColor: AppTheme.primary,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(sheetContext)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('Não foi possível avaliar: $e'),
+                                      backgroundColor:
+                                          Colors.red.shade700,
+                                    ),
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize:
+                              const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Enviar avaliação'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -410,7 +608,9 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                         const SizedBox(width: 10),
                                         TextButton(
-                                          onPressed: () {},
+                                          onPressed: () {
+                                            _abrirMenuAvaliacao(item);
+                                          },
                                           style: TextButton.styleFrom(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -426,8 +626,8 @@ class _HomePageState extends State<HomePage> {
                                                   BorderRadius.circular(16),
                                             ),
                                           ),
-                                          child: Text(
-                                            'avalie',
+                                          child: const Text(
+                                            'Avaliar',
                                             style: TextStyle(
                                               fontSize: 11,
                                               color: AppTheme.primary,
