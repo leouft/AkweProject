@@ -454,7 +454,9 @@ class _HomePageState extends State<HomePage> {
                                       item['id_traducao'] as int?;
 
                                   if (idTraducao != null) {
+                                    print("Registrando consulta em $idTraducao");
                                     _dbHelper.registrarConsulta(idTraducao);
+                                    print("Consulta registrada");
                                   }
                                 }
 
@@ -500,10 +502,28 @@ class _HomePageState extends State<HomePage> {
                                                 .isNotEmpty)
                                           GestureDetector(
                                             onTap: () async {
+                                              final idTraducao =
+                                                  item['id_traducao'] as int?;
+                                              final localAudioPath =
+                                                  item['local_audio_path']
+                                                      as String?;
+
+                                              if (idTraducao != null) {
+                                                await _dbHelper
+                                                    .registrarReproducaoAudio(
+                                                  idTraducao,
+                                                );
+                                              }
+
+                                              if (localAudioPath == null ||
+                                                  localAudioPath.isEmpty) {
+                                                return;
+                                              }
+
                                               try {
                                                 await _audioPlayer.play(
                                                   DeviceFileSource(
-                                                    item['local_audio_path'],
+                                                    localAudioPath,
                                                   ),
                                                 );
                                               } catch (e) {

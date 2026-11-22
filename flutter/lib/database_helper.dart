@@ -272,6 +272,11 @@ class DatabaseHelper {
         );
         return true;
       }
+
+      print(
+        'Erro ao registrar consulta: '
+        '${response.statusCode} ${response.body}',
+      );
     } catch (e) {
       print("Erro ao registrar consulta: $e");
     }
@@ -301,6 +306,11 @@ class DatabaseHelper {
         );
         return true;
       }
+
+      print(
+        'Erro ao registrar reprodução: '
+        '${response.statusCode} ${response.body}',
+      );
     } catch (e) {
       print("Erro ao registrar reprodução de áudio: $e");
     }
