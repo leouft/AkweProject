@@ -1095,22 +1095,41 @@ def listar_traducoes_admin(
 def create_traducao(dados: TraducaoCreateSchema):
     conn = None
     cursor = None
-
     try:
+        texto_pt = dados.texto_portugues.strip()
+        texto_akwe = dados.texto_akwe.strip()
+        raiz = dados.raiz_gramatical.strip() if dados.raiz_gramatical else None
+        if not texto_pt:
+            raise HTTPException(
+                status_code=422,
+                detail="O termo em português é obrigatório.",
+            )
+        if not texto_akwe:
+            raise HTTPException(
+                status_code=422,
+                detail="O termo Akwẽ é obrigatório.",
+            )
         conn = criar_conexao()
         cursor = conn.cursor()
-
+        cursor.execute(
+            "SELECT id_categoria FROM public.categorias WHERE id_categoria = %s;",
+            (dados.id_categoria,),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=400,
+                detail="Categoria não encontrada.",
+            )
         cursor.execute(
             """
             SELECT id_termo_pt
             FROM public.termos_portugues
-            WHERE texto_portugues = %s;
+            WHERE LOWER(BTRIM(texto_portugues)) = LOWER(BTRIM(%s))
+            LIMIT 1;
             """,
-            (dados.texto_portugues,),
+            (texto_pt,),
         )
-
         row_pt = cursor.fetchone()
-
         if row_pt:
             id_termo_pt = row_pt[0]
         else:
@@ -1119,28 +1138,26 @@ def create_traducao(dados: TraducaoCreateSchema):
                 INSERT INTO public.termos_portugues
                     (texto_portugues)
                 VALUES (%s)
+                ON CONFLICT (texto_portugues) DO UPDATE
+                    SET texto_portugues = EXCLUDED.texto_portugues
                 RETURNING id_termo_pt;
                 """,
-                (dados.texto_portugues,),
+                (texto_pt,),
             )
-
             id_termo_pt = cursor.fetchone()[0]
-
         cursor.execute(
             """
             SELECT id_termo_akwe
             FROM public.termos_akwe
-            WHERE texto_akwe = %s;
+            WHERE LOWER(BTRIM(texto_akwe)) = LOWER(BTRIM(%s))
+            LIMIT 1;
             """,
-            (dados.texto_akwe,),
+            (texto_akwe,),
         )
-
         row_akwe = cursor.fetchone()
-
         if row_akwe:
             id_termo_akwe = row_akwe[0]
-
-            if dados.raiz_gramatical:
+            if raiz:
                 cursor.execute(
                     """
                     UPDATE public.termos_akwe
@@ -1148,7 +1165,7 @@ def create_traducao(dados: TraducaoCreateSchema):
                     WHERE id_termo_akwe = %s;
                     """,
                     (
-                        dados.raiz_gramatical,
+                        raiz,
                         id_termo_akwe,
                     ),
                 )
@@ -1158,38 +1175,50 @@ def create_traducao(dados: TraducaoCreateSchema):
                 INSERT INTO public.termos_akwe
                     (texto_akwe, raiz_gramatical)
                 VALUES (%s, %s)
+                ON CONFLICT (texto_akwe) DO UPDATE
+                    SET texto_akwe = EXCLUDED.texto_akwe
                 RETURNING id_termo_akwe;
                 """,
                 (
-                    dados.texto_akwe,
-                    dados.raiz_gramatical,
+                    texto_akwe,
+                    raiz,
                 ),
             )
-
             id_termo_akwe = cursor.fetchone()[0]
-
         cursor.execute(
             """
-            INSERT INTO public.termos_traducoes
+            SELECT id_traducao
+            FROM public.termos_traducoes
+            WHERE id_termo_pt = %s
+              AND id_termo_akwe = %s
+            LIMIT 1;
+            """,
+            (id_termo_pt, id_termo_akwe),
+        )
+        traducao_existente = cursor.fetchone()
+        if traducao_existente:
+            id_traducao = traducao_existente[0]
+        else:
+            cursor.execute(
+                """
+                INSERT INTO public.termos_traducoes
+                    (
+                        id_termo_pt,
+                        id_termo_akwe,
+                        id_categoria,
+                        explicacao_contexto
+                    )
+                VALUES (%s, %s, %s, %s)
+                RETURNING id_traducao;
+                """,
                 (
                     id_termo_pt,
                     id_termo_akwe,
-                    id_categoria,
-                    explicacao_contexto
-                )
-            VALUES (%s, %s, %s, %s)
-            RETURNING id_traducao;
-            """,
-            (
-                id_termo_pt,
-                id_termo_akwe,
-                dados.id_categoria,
-                dados.explicacao_contexto,
-            ),
-        )
-
-        id_traducao = cursor.fetchone()[0]
-
+                    dados.id_categoria,
+                    dados.explicacao_contexto,
+                ),
+            )
+            id_traducao = cursor.fetchone()[0]
         cursor.execute(
             """
             INSERT INTO public.estatisticas_termos
@@ -1199,34 +1228,34 @@ def create_traducao(dados: TraducaoCreateSchema):
                     reproducoes_audio,
                     tempo_retencao_segundos
                 )
-            VALUES (%s, 0, 0, 0);
+            VALUES (%s, 0, 0, 0)
+            ON CONFLICT (id_traducao) DO NOTHING;
             """,
             (id_traducao,),
         )
-
         conn.commit()
-
         return {
-            "status": "success",
-            "mensagem": "Tradução cadastrada com sucesso.",
+            "status":
+                "existente"
+                if traducao_existente
+                else "success",
+            "mensagem":
+                "A tradução já estava cadastrada."
+                if traducao_existente
+                else "Tradução cadastrada com sucesso.",
             "id_traducao": id_traducao,
         }
-
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
     except Exception as exc:
         if conn:
             conn.rollback()
-
         raise HTTPException(
             status_code=400,
             detail=f"Erro ao salvar termo: {str(exc)}",
         )
-
-    finally:
-        if cursor:
-            cursor.close()
-
-        if conn:
-            conn.close()
 
 
 @admin_router.put("/traducoes/{id_traducao}")
